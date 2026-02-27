@@ -11,8 +11,8 @@ import { AdminSets } from '@/pages/admin/AdminSets'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, profile, loading } = useAuth()
-  if (loading) return <div className="min-h-screen flex items-center justify-center">טוען...</div>
-  if (!user) return <Navigate to="/" replace />
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-bg"><p className="text-text">טוען...</p></div>
+  if (!user) return <div className="min-h-screen flex items-center justify-center bg-bg"><p className="text-text">מתחבר...</p></div>
   if (!profile) return <Onboarding />
   return <>{children}</>
 }
