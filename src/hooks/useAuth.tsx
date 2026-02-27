@@ -7,11 +7,14 @@ import {
 } from 'react'
 import {
   signInAnon,
+  signInWithGoogle,
   onAuthChange,
   getFCMToken,
   requestNotificationPermission,
   saveFCMToken,
 } from '@/lib/firebase'
+import { setPersistence, browserLocalPersistence } from 'firebase/auth'
+import { auth } from '@/lib/firebase'
 import {
   doc,
   getDoc,
@@ -25,6 +28,7 @@ interface AuthContextValue {
   profile: UserProfile | null
   loading: boolean
   isAdmin: boolean
+  signInWithGoogle: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -69,12 +73,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!user) {
-      signInAnon().catch(() => setLoading(false))
+      setPersistence(auth, browserLocalPersistence)
+        .then(() => signInAnon())
+        .catch(() => setLoading(false))
     }
   }, [user])
 
+  const handleSignInWithGoogle = async () => {
+    try {
+      await signInWithGoogle()
+    } catch (err) {
+      console.error('שגיאה בהתחברות גוגל:', err)
+      throw err
+    }
+  }
+
   return (
-    <AuthContext.Provider value={{ user, profile, loading, isAdmin }}>
+    <AuthContext.Provider value={{ user, profile, loading, isAdmin, signInWithGoogle: handleSignInWithGoogle }}>
       {children}
     </AuthContext.Provider>
   )

@@ -4,6 +4,11 @@ import {
   signInAnonymously,
   signOut as firebaseSignOut,
   onAuthStateChanged,
+  signInWithPopup,
+  linkWithPopup,
+  GoogleAuthProvider,
+  setPersistence,
+  browserLocalPersistence,
   type User,
 } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
@@ -41,6 +46,18 @@ export function getCurrentUser(): User | null {
 
 export async function signInAnon() {
   return signInAnonymously(auth)
+}
+
+const googleProvider = new GoogleAuthProvider()
+
+/** התחברות עם חשבון גוגל – לשימוש אדמינים. שומר סשן ב-localStorage לתקופה ארוכה. */
+export async function signInWithGoogle() {
+  await setPersistence(auth, browserLocalPersistence)
+  const user = auth.currentUser
+  if (user?.isAnonymous) {
+    return linkWithPopup(user, googleProvider)
+  }
+  return signInWithPopup(auth, googleProvider)
 }
 
 export async function signOut() {

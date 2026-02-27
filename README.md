@@ -2,6 +2,9 @@
 
 אפליקציית PWA ליומן אישי ואימון למורים ישראלים.
 
+לכל שינוי בקוד:
+npm run build
+firebase deploy
 ---
 
 ## 1. הרצה מקומית (פיתוח)
@@ -64,23 +67,28 @@ npm run build
 ## הגדרת Firebase
 
 1. צור פרויקט ב-[Firebase Console](https://console.firebase.google.com)
-2. הפעל: **Authentication** (Anonymous), **Firestore**, **Storage**, **Cloud Messaging**
+2. הפעל: **Authentication** (Anonymous + **Google**), **Firestore**, **Storage**, **Cloud Messaging**
 3. העתק: `cp .env.example .env`
 4. מלא ב-`.env` את הערכים מ-Firebase Console:
    - Project Settings → General → Your apps → Web app
    - Cloud Messaging → Web Push certificates → VAPID key
 5. העלה את `firestore.rules` ל-Firestore (Rules tab)
+6. להפעלת שמירת תמונות: הרץ `firebase deploy --only storage` להעלאת `storage.rules` ל-Firebase Storage
 
 ---
 
 ## הגדרת אדמין
 
-כדי לאפשר יצירת סטים, יש להגדיר Custom Claim `admin: true` למשתמש.
-דוגמה עם Firebase Admin SDK:
+1. **הפעלת התחברות גוגל**: ב-Firebase Console → Authentication → Sign-in method → הוסף את Google והפעל.
+2. **התחברות באפליקציה**: במסך הגדרות → "התחבר עם גוגל (לאדמינים)".
+3. **הגדרת Custom Claim**: כדי לאפשר יצירת סטים, יש להגדיר `admin: true` למשתמש (לפי UID או אימייל).
+   דוגמה עם Firebase Admin SDK:
 
 ```javascript
 admin.auth().setCustomUserClaims(uid, { admin: true })
 ```
+
+המערכת שומרת את הסשן ב-localStorage – המשתמש נשאר מחובר עד להתנתקות ידנית.
 
 ---
 
