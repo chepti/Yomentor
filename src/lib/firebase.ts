@@ -78,8 +78,13 @@ export async function getFCMToken(): Promise<string | null> {
       serviceWorkerRegistration: registration,
     })
     return token
-  } catch {
-    return null
+  } catch (err) {
+    try {
+      const token = await getToken(messaging, { vapidKey: VAPID_KEY })
+      return token
+    } catch {
+      return null
+    }
   }
 }
 

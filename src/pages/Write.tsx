@@ -20,6 +20,7 @@ import {
 import { setHasSavedOnce } from '@/hooks/useInstallPrompt'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db, storage } from '@/lib/firebase'
+import { getEntryDisplayHtml } from '@/lib/stripHtml'
 
 const TEMPLATES = [
   'מה שימח אותי היום?',
@@ -62,7 +63,7 @@ export function Write() {
         if (docSnap.exists()) {
           const d = docSnap.data()
           setExistingId(docSnap.id)
-          setText(d.text || '')
+          setText(getEntryDisplayHtml({ text: d.text, questionText: d.questionText }) || '')
           setImageUrl(d.imageUrl || null)
         }
       } else {

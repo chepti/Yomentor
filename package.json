@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "predev": "node scripts/generate-firebase-sw.js",
+    "build": "node scripts/generate-firebase-sw.js && tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },

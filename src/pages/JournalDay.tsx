@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useEntries } from '@/hooks/useEntries'
 import { toHebrewDate } from '@/lib/hebrewDate'
 import { Card } from '@/components/Card'
-import { stripHtml } from '@/lib/stripHtml'
+import { getEntryDisplayHtml } from '@/lib/stripHtml'
 
 export function JournalDay() {
   const { date } = useParams<{ date: string }>()
@@ -68,12 +68,10 @@ export function JournalDay() {
                       minute: '2-digit',
                     })}
                   </p>
-                  {entry.questionText && (
-                    <p className="text-sm font-medium text-primary mb-1 line-clamp-2">
-                      {entry.questionText}
-                    </p>
-                  )}
-                  <p className="line-clamp-3">{stripHtml(entry.text || '')}</p>
+                  <div
+                    className="line-clamp-3 [&_strong]:font-bold [&_p]:mb-1 last:[&_p]:mb-0"
+                    dangerouslySetInnerHTML={{ __html: getEntryDisplayHtml(entry) }}
+                  />
                 </div>
                 {entry.imageUrl && (
                   <img

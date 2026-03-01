@@ -53,3 +53,34 @@ export function toHebrewMonthName(date: Date): string {
   const parts = full.split(' ')
   return parts.length >= 2 ? parts[1] : full
 }
+
+export interface HebrewMonthBlock {
+  monthStart: Date
+  monthEnd: Date
+  label: string
+}
+
+/** רשימת בלוקי חודשים עבריים לתצוגה (תשרי תחילה) */
+export function getHebrewMonthBlocks(before = 6, after = 6): HebrewMonthBlock[] {
+  const hNow = new HDate(new Date())
+  let h = hNow
+  for (let i = 0; i < before; i++) {
+    h = h.subtract(1, 'M')
+  }
+  const blocks: HebrewMonthBlock[] = []
+  for (let i = 0; i < before + after + 1; i++) {
+    const hFirst = new HDate(1, h.getMonth(), h.getFullYear())
+    const daysInMonth = hFirst.daysInMonth()
+    const hLast = new HDate(daysInMonth, h.getMonth(), h.getFullYear())
+    const full = hFirst.renderGematriya(true, false)
+    const parts = full.split(' ')
+    const label = parts.length >= 3 ? `${parts[1]} ${parts[2]}` : full
+    blocks.push({
+      monthStart: hFirst.greg(),
+      monthEnd: hLast.greg(),
+      label,
+    })
+    h = h.add(1, 'M')
+  }
+  return blocks
+}

@@ -5,26 +5,46 @@ import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterv
 import { he } from 'date-fns/locale'
 import { useAuth } from '@/hooks/useAuth'
 import { useEntries } from '@/hooks/useEntries'
-import { toHebrewMonthYear, dayToGematriya } from '@/lib/hebrewDate'
+import { HDate } from '@hebcal/core'
+import { dayToGematriya, getHebrewMonthBlocks } from '@/lib/hebrewDate'
 import { isHoliday } from '@/lib/holidays'
 
-/** ימי השבוע: ש=שבת (שמאל), א=ראשון (ימין) – עמודה 0=שבת, 6=ראשון */
-const WEEKDAYS = ['ש', 'ו', 'ה', 'ד', 'ג', 'ב', 'א']
+/** ימי השבוע: א=ראשון (ימין), ש=שבת (שמאל) – ב-RTL עמודה 0=ימין */
+const WEEKDAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש']
 const MONTHS_BEFORE = 6
 const MONTHS_AFTER = 6
 
 export function Journal() {
   const { user } = useAuth()
   const entries = useEntries(user?.uid)
-  const [useHebrewDate, setUseHebrewDate] = useState(false)
+  const [useHebrewDate, setUseHebrewDate] = useState(() => {
+    try {
+      return localStorage.getItem('journal-hebrew-view') === 'true'
+    } catch {
+      return false
+    }
+  })
+
+  const toggleHebrewView = () => {
+    setUseHebrewDate((v) => {
+      const next = !v
+      try {
+        localStorage.setItem('journal-hebrew-view', String(next))
+      } catch {
+        /* ignore */
+      }
+      return next
+    })
+  }
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const currentMonthRef = useRef<HTMLDivElement>(null)
 
   const entriesByDate = useMemo(() => {
     const map = new Map<string, (typeof entries)[0][]>()
     for (const e of entries) {
-      const key = e.date?.toDate?.()?.toISOString?.()?.split('T')[0]
-      if (key) {
+      const d = e.date?.toDate?.()
+      if (d) {
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
         const list = map.get(key) ?? []
         list.push(e)
         map.set(key, list)
@@ -34,11 +54,25 @@ export function Journal() {
   }, [entries])
 
   const now = new Date()
-  const months = useMemo(() => {
+  const monthBlocks = useMemo(() => {
+    if (useHebrewDate) {
+      return getHebrewMonthBlocks(MONTHS_BEFORE, MONTHS_AFTER).map((b) => ({
+        monthStart: b.monthStart,
+        monthEnd: b.monthEnd,
+        label: b.label,
+      }))
+    }
     const start = subMonths(now, MONTHS_BEFORE)
     const total = MONTHS_BEFORE + MONTHS_AFTER + 1
-    return Array.from({ length: total }, (_, i) => addMonths(start, i))
-  }, [])
+    return Array.from({ length: total }, (_, i) => {
+      const d = addMonths(start, i)
+      return {
+        monthStart: startOfMonth(d),
+        monthEnd: endOfMonth(d),
+        label: format(d, 'MMMM yyyy', { locale: he }),
+      }
+    })
+  }, [useHebrewDate])
 
   useEffect(() => {
     currentMonthRef.current?.scrollIntoView({ block: 'start', behavior: 'auto' })
@@ -71,7 +105,7 @@ export function Journal() {
         </div>
         <button
           type="button"
-          onClick={() => setUseHebrewDate((v) => !v)}
+          onClick={toggleHebrewView}
           className={`text-sm px-3 py-1.5 rounded-full transition-colors ${
             useHebrewDate ? 'bg-primary text-white' : 'bg-card text-muted'
           }`}
@@ -86,38 +120,32 @@ export function Journal() {
         style={{ maxHeight: 'calc(100vh - 180px)' }}
       >
         <div className="flex flex-col gap-8">
-          {months.map((monthDate) => {
-            const isCurrentMonth =
-              monthDate.getMonth() === now.getMonth() &&
-              monthDate.getFullYear() === now.getFullYear()
-            const monthStart = startOfMonth(monthDate)
-            const monthEnd = endOfMonth(monthDate)
+          {monthBlocks.map((block, idx) => {
+            const { monthStart, monthEnd, label } = block
             const days = eachDayOfInterval({ start: monthStart, end: monthEnd })
+            const isCurrentMonth =
+              now >= monthStart && now <= monthEnd
 
             return (
               <div
-                key={monthDate.toISOString()}
+                key={`${label}-${idx}`}
                 ref={isCurrentMonth ? currentMonthRef : null}
                 className="bg-transparent rounded-card p-4"
               >
-                <h2 className="text-lg font-bold text-center mb-3">
-                  {useHebrewDate
-                    ? toHebrewMonthYear(monthDate)
-                    : format(monthDate, 'MMMM yyyy', { locale: he })}
-                </h2>
-                <div className="grid grid-cols-7 gap-2 mb-2" dir="ltr">
+                <h2 className="text-lg font-bold text-center mb-3">{label}</h2>
+                <div className="grid grid-cols-7 gap-2 mb-2" dir="rtl">
                   {WEEKDAYS.map((d) => (
                     <div key={d} className="text-center text-sm text-muted">
                       {d}
                     </div>
                   ))}
                 </div>
-                <div className="grid grid-cols-7 gap-2" dir="ltr">
-                  {Array.from({ length: 6 - monthStart.getDay() }).map((_, i) => (
+                <div className="grid grid-cols-7 gap-2" dir="rtl">
+                  {Array.from({ length: monthStart.getDay() }).map((_, i) => (
                     <div key={`pad-${i}`} />
                   ))}
                   {days.map((day) => {
-                    const dateKey = day.toISOString().split('T')[0]
+                    const dateKey = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`
                     const dayEntries = entriesByDate.get(dateKey) ?? []
                     const hasEntry = dayEntries.length > 0
                     const entryWithImage = dayEntries.find((e) => e.imageUrl)
@@ -139,7 +167,9 @@ export function Journal() {
                           />
                         ) : (
                           <span className="text-sm">
-                            {useHebrewDate ? dayToGematriya(day.getDate()) : format(day, 'd')}
+                            {useHebrewDate
+                              ? dayToGematriya(new HDate(day).getDate())
+                              : format(day, 'd')}
                           </span>
                         )}
                       </Link>

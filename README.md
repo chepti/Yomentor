@@ -73,7 +73,9 @@ npm run build
    - Project Settings → General → Your apps → Web app
    - Cloud Messaging → Web Push certificates → VAPID key
 5. העלה את `firestore.rules` ל-Firestore (Rules tab)
-6. להפעלת שמירת תמונות: הרץ `firebase deploy --only storage` להעלאת `storage.rules` ל-Firebase Storage
+6. **התראות**: הפעל את [FCM Registration API](https://console.cloud.google.com/apis/library/fcmregistrations.googleapis.com) ב-Google Cloud (בחר את הפרויקט של Firebase)
+7. קובץ `firebase-messaging-sw.js` נוצר אוטומטית מ-`.env` בכל `npm run dev` או `npm run build`
+8. להפעלת שמירת תמונות: הרץ `firebase deploy --only storage` להעלאת `storage.rules` ל-Firebase Storage
 
 ---
 

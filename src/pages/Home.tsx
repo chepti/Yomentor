@@ -9,7 +9,7 @@ import { useMonthlyGoals } from '@/hooks/useMonthlyGoals'
 import { useResolvedActiveSet } from '@/hooks/useResolvedActiveSet'
 import { getHebrewMonthKey } from '@/lib/hebrewDate'
 import { getQuestionText } from '@/lib/setUtils'
-import { stripHtml } from '@/lib/stripHtml'
+import { getEntryDisplayHtml } from '@/lib/stripHtml'
 
 function getQuestionIndexForToday(
   startedAt: { toDate?: () => Date } | Date | undefined,
@@ -158,11 +158,10 @@ export function Home() {
                       {entry.date?.toDate?.()?.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })} • היום
                     </span>
                   </div>
-                  <h4 className="font-bold mb-1">
-                    {entry.questionText ? entry.questionText.slice(0, 40) : stripHtml(entry.text || '').slice(0, 30) || 'ללא כותרת'}
-                    {((entry.questionText?.length ?? 0) > 40 || stripHtml(entry.text || '').length > 30) ? '...' : ''}
-                  </h4>
-                  <p className="text-sm text-muted line-clamp-2">{stripHtml(entry.text || '')}</p>
+                  <div
+                    className="text-sm line-clamp-2 [&_strong]:font-bold [&_p]:mb-0.5 last:[&_p]:mb-0"
+                    dangerouslySetInnerHTML={{ __html: getEntryDisplayHtml(entry) }}
+                  />
                 </div>
                 {entry.imageUrl && (
                   <img

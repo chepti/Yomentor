@@ -7,6 +7,7 @@ import { useSets } from '@/hooks/useSets'
 import { useActiveSet } from '@/hooks/useActiveSet'
 import { toHebrewDate } from '@/lib/hebrewDate'
 import { getQuestionText } from '@/lib/setUtils'
+import { escapeHtml, extractAnswerFromSetEntry } from '@/lib/stripHtml'
 import {
   collection,
   addDoc,
@@ -72,8 +73,10 @@ export function SetQuestionWrite() {
       const snap = await getDocs(q)
       if (!snap.empty) {
         const entryDoc = snap.docs[0]
+        const d = entryDoc.data()
         setExistingId(entryDoc.id)
-        setText(entryDoc.data().text || '')
+        const fullText = d.text || ''
+        setText(extractAnswerFromSetEntry(fullText, d.questionText || questionText))
       }
     }
     loadEntry()
@@ -83,16 +86,20 @@ export function SetQuestionWrite() {
     if (!user || !setId || !setData) return
     setSaving(true)
     try {
+      const questionBlock = questionText
+        ? `<p><strong>${escapeHtml(questionText)}</strong></p>`
+        : ''
+      const textToSave = questionBlock + text
       const d = new Date()
       d.setHours(12, 0, 0, 0)
       if (existingId) {
         await updateDoc(doc(db, 'users', user.uid, 'entries', existingId), {
-          text,
+          text: textToSave,
           questionText,
         })
       } else {
         await addDoc(collection(db, 'users', user.uid, 'entries'), {
-          text,
+          text: textToSave,
           date: d,
           setId,
           questionId: qIndex,
