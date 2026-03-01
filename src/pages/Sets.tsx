@@ -1,113 +1,171 @@
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Plus, ChevronLeft, User } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useSets } from '@/hooks/useSets'
-import { useActiveSet } from '@/hooks/useActiveSet'
+import { useResolvedActiveSet } from '@/hooks/useResolvedActiveSet'
+import { useSetOptOuts } from '@/hooks/useSetOptOuts'
 import { Card } from '@/components/Card'
-import { doc, setDoc } from 'firebase/firestore'
-import { serverTimestamp } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { getHebrewMonthKey } from '@/lib/hebrewDate'
 
 export function Sets() {
-  const { user } = useAuth()
+  const { user, isAdmin } = useAuth()
   const sets = useSets()
-  const activeSet = useActiveSet(user?.uid)
-  const [selectedSet, setSelectedSet] = useState<typeof sets[0] | null>(null)
+  const { activeSet, activeSetData } = useResolvedActiveSet(user?.uid)
+  const optOuts = useSetOptOuts(user?.uid)
+  const currentMonthKey = getHebrewMonthKey(new Date())
 
-  const activeSetData = activeSet ? sets.find((s) => s.id === activeSet.setId) : null
-
-  const handleStartSet = async (setId: string) => {
-    if (!user) return
-    await setDoc(doc(db, 'users', user.uid), {
-      activeSet: {
-        setId,
-        currentQuestionIndex: 0,
-        startedAt: serverTimestamp(),
-      },
-    }, { merge: true })
-    setSelectedSet(null)
-  }
+  const curatedSets = sets.filter((s) => s.type !== 'monthly')
+  const monthlySet = sets.find(
+    (s) => s.type === 'monthly' && s.monthKey === currentMonthKey
+  )
 
   return (
     <div className="p-4">
-      <h1 className="text-xl font-bold mb-6">בחרי סט אימון</h1>
+      <h1 className="text-xl font-bold mb-6">סטים</h1>
 
       {activeSetData && (
-        <Card className="mb-6 bg-primary/10 border-2 border-primary/30">
-          <div className="flex justify-between items-start">
-            <div>
-              <span className="text-xs bg-primary/30 text-primary px-2 py-0.5 rounded-full">סט פעיל</span>
-              <h2 className="text-lg font-bold mt-2">{activeSetData.title}</h2>
-              <p className="text-sm text-muted">{activeSetData.description}</p>
-              <div className="flex gap-1 mt-2">
-                {activeSetData.questions.map((_, i) => (
-                  <span
-                    key={i}
-                    className={`w-2 h-2 rounded-full ${
-                      i <= (activeSet?.currentQuestionIndex ?? 0) ? 'bg-primary' : 'bg-muted/30'
-                    }`}
-                  />
-                ))}
+        <Link to={`/sets/${activeSetData.id}`}>
+          <Card className="mb-6 bg-primary/10 border-2 border-primary/30">
+            <div className="flex justify-between items-start">
+              <div className="flex-1">
+                <span className="text-xs bg-primary/30 text-primary px-2 py-0.5 rounded-full">
+                  סט פעיל
+                </span>
+                <h2 className="text-lg font-bold mt-2">{activeSetData.title}</h2>
+                <p className="text-sm text-muted line-clamp-2">
+                  {activeSetData.shortDescription || activeSetData.description}
+                </p>
+                <div className="flex gap-1 mt-2">
+                  {activeSetData.questions?.map((_, i) => (
+                    <span
+                      key={i}
+                      className={`w-2 h-2 rounded-full ${
+                        i <= (activeSet?.currentQuestionIndex ?? 0)
+                          ? 'bg-primary'
+                          : 'bg-muted/30'
+                      }`}
+                    />
+                  ))}
+                </div>
+                <span className="inline-flex items-center gap-1 mt-3 text-primary text-sm font-medium">
+                  המשך לכתיבה
+                  <ChevronLeft size={16} />
+                </span>
               </div>
-              <Link
-                to="/write"
-                className="mt-4 inline-block bg-primary text-white px-6 py-2 rounded-[50px]"
-              >
-                המשך ←
-              </Link>
+              <div className="flex flex-col items-end gap-2">
+                {activeSetData.coverImageUrl ? (
+                  <img
+                    src={activeSetData.coverImageUrl}
+                    alt=""
+                    className="w-16 h-16 rounded-xl object-cover"
+                  />
+                ) : (
+                  <span className="text-3xl">{activeSetData.emoji}</span>
+                )}
+              </div>
             </div>
-            <span className="text-3xl">{activeSetData.emoji}</span>
-          </div>
-        </Card>
+          </Card>
+        </Link>
       )}
 
-      <h3 className="font-bold mb-4">ספריית האימונים</h3>
-      <div className="grid grid-cols-2 gap-4">
-        {sets.map((set) => (
-          <button
-            key={set.id}
-            type="button"
-            onClick={() => setSelectedSet(set)}
-            className="bg-card rounded-card shadow-soft p-4 text-right flex flex-col items-center gap-2"
-          >
-            <span className="text-2xl">{set.emoji}</span>
-            <span className="font-bold">{set.title}</span>
-            <span className="text-sm text-muted">{set.questions?.length || 0} שאלות</span>
-          </button>
-        ))}
-      </div>
+      {monthlySet && !optOuts[monthlySet.id] && activeSetData?.id !== monthlySet.id && (
+        <section className="mb-6">
+          <h3 className="font-bold mb-3 text-primary">סט החודש</h3>
+          <Link to={`/sets/${monthlySet.id}`}>
+            <SetCard set={monthlySet} />
+          </Link>
+        </section>
+      )}
+
+      <section>
+        <h3 className="font-bold mb-3">ספריית הסטים</h3>
+        <div className="grid gap-4">
+          {curatedSets.map((set) => (
+            <Link key={set.id} to={`/sets/${set.id}`}>
+              <SetCard set={set} />
+            </Link>
+          ))}
+        </div>
+      </section>
 
       {sets.length === 0 && (
         <Card>
-          <p className="text-muted text-center">אין סטים זמינים. אדמין יכול ליצור סטים.</p>
+          <p className="text-muted text-center mb-4">אין סטים זמינים.</p>
+          {isAdmin ? (
+            <Link
+              to="/admin/sets"
+              className="flex items-center justify-center gap-2 w-full bg-primary text-white py-3 rounded-[50px]"
+            >
+              <Plus size={20} strokeWidth={2} />
+              צרי סט חדש
+            </Link>
+          ) : (
+            <p className="text-muted text-center text-sm">אדמין יכול ליצור סטים.</p>
+          )}
         </Card>
       )}
 
-      {selectedSet && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <Card className="max-w-sm w-full">
-            <h3 className="text-lg font-bold mb-2">{selectedSet.title}</h3>
-            <p className="text-sm text-muted mb-4">{selectedSet.description}</p>
-            <p className="text-sm mb-4">
-              שאלה ראשונה: {selectedSet.questions?.[0] || '-'}
-            </p>
-            <button
-              type="button"
-              onClick={() => handleStartSet(selectedSet.id)}
-              className="w-full bg-primary text-white py-3 rounded-[50px]"
-            >
-              התחילי
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedSet(null)}
-              className="w-full mt-2 text-muted py-2"
-            >
-              ביטול
-            </button>
-          </Card>
-        </div>
+      {isAdmin && sets.length > 0 && (
+        <Link
+          to="/admin/sets"
+          className="flex items-center justify-center gap-2 w-full bg-primary/20 text-primary py-3 rounded-[50px] mt-6"
+        >
+          <Plus size={20} strokeWidth={2} />
+          ניהול סטים
+        </Link>
       )}
     </div>
+  )
+}
+
+function SetCard({
+  set,
+}: {
+  set: { id: string; title: string; description?: string; shortDescription?: string; emoji: string; coverImageUrl?: string; creator?: { name: string; imageUrl?: string }; questions?: unknown[] }
+}) {
+  const daysCount = set.questions?.length ?? 0
+  const desc = set.shortDescription || set.description || ''
+  const twoSentences = desc.split(/[.!?]/).filter(Boolean).slice(0, 2).join('. ')
+  return (
+    <Card className="overflow-hidden hover:opacity-95 transition-opacity">
+      <div className="flex gap-4">
+        <div className="flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden bg-muted/20">
+          {set.coverImageUrl ? (
+            <img
+              src={set.coverImageUrl}
+              alt=""
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-3xl">
+              {set.emoji}
+            </div>
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <h4 className="font-bold">{set.title}</h4>
+          <p className="text-sm text-muted">{daysCount} ימים</p>
+          {set.creator && (
+            <div className="flex items-center gap-1 mt-1">
+              <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center overflow-hidden">
+                {set.creator.imageUrl ? (
+                  <img src={set.creator.imageUrl} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <User size={12} className="text-primary" />
+                )}
+              </div>
+              <span className="text-xs text-muted">{set.creator.name}</span>
+            </div>
+          )}
+          {twoSentences && (
+            <p className="text-sm text-muted mt-1 line-clamp-2">{twoSentences}</p>
+          )}
+          <span className="inline-flex items-center gap-1 mt-2 text-primary text-sm">
+            לפרטים
+            <ChevronLeft size={14} />
+          </span>
+        </div>
+      </div>
+    </Card>
   )
 }

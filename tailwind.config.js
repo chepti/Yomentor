@@ -13,6 +13,11 @@ export default {
         accent: 'var(--accent)',
         text: 'var(--text)',
         muted: 'var(--muted)',
+        'icon-primary': 'var(--icon-primary)',
+        'icon-secondary': 'var(--icon-secondary)',
+        'icon-accent': 'var(--icon-accent)',
+        'icon-danger': 'var(--icon-danger)',
+        'icon-warning': 'var(--icon-warning)',
       },
       fontFamily: {
         sans: ['Varela Round', 'sans-serif'],

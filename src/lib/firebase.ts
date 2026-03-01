@@ -1,11 +1,9 @@
 import { initializeApp } from 'firebase/app'
 import {
   getAuth,
-  signInAnonymously,
   signOut as firebaseSignOut,
   onAuthStateChanged,
   signInWithPopup,
-  linkWithPopup,
   GoogleAuthProvider,
   setPersistence,
   browserLocalPersistence,
@@ -44,19 +42,11 @@ export function getCurrentUser(): User | null {
   return auth.currentUser
 }
 
-export async function signInAnon() {
-  return signInAnonymously(auth)
-}
-
 const googleProvider = new GoogleAuthProvider()
 
-/** התחברות עם חשבון גוגל – לשימוש אדמינים. שומר סשן ב-localStorage לתקופה ארוכה. */
+/** התחברות עם חשבון גוגל. שומר סשן ב-localStorage לתקופה ארוכה. */
 export async function signInWithGoogle() {
   await setPersistence(auth, browserLocalPersistence)
-  const user = auth.currentUser
-  if (user?.isAnonymous) {
-    return linkWithPopup(user, googleProvider)
-  }
   return signInWithPopup(auth, googleProvider)
 }
 

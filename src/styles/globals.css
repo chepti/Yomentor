@@ -7,10 +7,18 @@
 :root {
   --bg: #EEF4F7;
   --card: #FAFAF8;
-  --primary: #7BAE9A;
-  --accent: #F2C4A0;
+  --primary: #2E499B;
+  --accent: #6896F0;
   --text: #2D2D2D;
   --muted: #8A9BA8;
+  /* צבעי אייקונים – לוגו פיג"ה */
+  --icon-primary: #2E499B;
+  --icon-secondary: #4663AC;
+  --icon-accent: #6896F0;
+  --icon-danger: #E22830;
+  --icon-warning: #FF8000;
+  --icon-highlight: #FFCB00;
+  --icon-warning-light: #FFC07F;
 }
 
 * {

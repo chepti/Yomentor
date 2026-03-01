@@ -17,11 +17,13 @@ export function useEntries(uid: string | undefined) {
     )
     const unsub = onSnapshot(q, (snap) => {
       setEntries(
-        snap.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-          date: doc.data().date,
-        })) as (Entry & { id: string })[]
+        snap.docs
+          .filter((d) => !d.data().archived)
+          .map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+            date: doc.data().date,
+          })) as (Entry & { id: string })[]
       )
     })
     return unsub

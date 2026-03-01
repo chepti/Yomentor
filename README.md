@@ -67,7 +67,7 @@ npm run build
 ## הגדרת Firebase
 
 1. צור פרויקט ב-[Firebase Console](https://console.firebase.google.com)
-2. הפעל: **Authentication** (Anonymous + **Google**), **Firestore**, **Storage**, **Cloud Messaging**
+2. הפעל: **Authentication** (**Google** בלבד), **Firestore**, **Storage**, **Cloud Messaging**
 3. העתק: `cp .env.example .env`
 4. מלא ב-`.env` את הערכים מ-Firebase Console:
    - Project Settings → General → Your apps → Web app
@@ -80,13 +80,16 @@ npm run build
 ## הגדרת אדמין
 
 1. **הפעלת התחברות גוגל**: ב-Firebase Console → Authentication → Sign-in method → הוסף את Google והפעל.
-2. **התחברות באפליקציה**: במסך הגדרות → "התחבר עם גוגל (לאדמינים)".
-3. **הגדרת Custom Claim**: כדי לאפשר יצירת סטים, יש להגדיר `admin: true` למשתמש (לפי UID או אימייל).
-   דוגמה עם Firebase Admin SDK:
-
-```javascript
-admin.auth().setCustomUserClaims(uid, { admin: true })
-```
+2. **קבלת UID**: המשתמש מתחבר באפליקציה עם Google. UID מופיע ב-Firebase Console → Authentication → Users.
+3. **הגדרת Custom Claim** (פעם אחת):
+   - Firebase Console → Project Settings → Service Accounts → Generate new private key
+   - שמור את הקובץ כ-`functions/service-account.json`
+   - הרץ (החלף YOUR_UID ב-UID האמיתי מ-Firebase Console):
+   ```bash
+   cd functions
+   node set-admin.js YOUR_UID
+   ```
+   - מחק את `service-account.json` אחרי השימוש (או השאר – הקובץ ב-.gitignore)
 
 המערכת שומרת את הסשן ב-localStorage – המשתמש נשאר מחובר עד להתנתקות ידנית.
 

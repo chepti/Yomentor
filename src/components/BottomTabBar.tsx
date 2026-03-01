@@ -1,10 +1,11 @@
 import { NavLink } from 'react-router-dom'
+import { PenLine, Calendar, Leaf, Settings } from 'lucide-react'
 
 const tabs = [
-  { path: '/', label: 'כתוב', icon: '✍️' },
-  { path: '/journal', label: 'יומן', icon: '📅' },
-  { path: '/sets', label: 'סטים', icon: '🌱' },
-  { path: '/settings', label: 'הגדרות', icon: '⚙️' },
+  { path: '/', label: 'מסע', Icon: PenLine, activeBg: 'bg-[#6896F0]' },
+  { path: '/journal', label: 'יומן', Icon: Calendar, activeBg: 'bg-[#2E499B]' },
+  { path: '/sets', label: 'סטים', Icon: Leaf, activeBg: 'bg-[#FF8000]' },
+  { path: '/settings', label: 'הגדרות', Icon: Settings, activeBg: 'bg-[#E22830]' },
 ]
 
 export function BottomTabBar() {
@@ -19,13 +20,13 @@ export function BottomTabBar() {
           to={tab.path}
           end={tab.path === '/'}
           className={({ isActive }) =>
-            `flex flex-col items-center gap-1 px-4 py-2 rounded-[50px] transition-colors ${
-              isActive ? 'bg-primary text-white' : 'text-muted'
+            `flex flex-col items-center justify-center gap-0.5 px-2 py-2 w-[56px] h-[56px] rounded-full transition-colors ${
+              isActive ? `${tab.activeBg} text-white` : 'text-muted'
             }`
           }
         >
-          <span className="text-lg">{tab.icon}</span>
-          <span className="text-sm font-sans">{tab.label}</span>
+          <tab.Icon size={22} strokeWidth={1.5} color="currentColor" />
+          <span className="text-[11px] font-sans leading-tight">{tab.label}</span>
         </NavLink>
       ))}
     </nav>

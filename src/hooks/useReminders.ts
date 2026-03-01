@@ -24,7 +24,9 @@ export function useReminders() {
     const unsub = onForegroundMessage((payload) => {
       if (payload && typeof payload === 'object' && 'data' in payload) {
         const data = (payload as { data?: { type?: string } }).data
-        if (data?.type === 'daily' || data?.type === 'set_question' || data?.type === 'inspiration') {
+        if (data?.type === 'monthly_goals') {
+          navigate('/goals')
+        } else if (data?.type === 'daily' || data?.type === 'set_question' || data?.type === 'inspiration') {
           navigate('/write')
         }
       }

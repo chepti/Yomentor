@@ -6,19 +6,17 @@ import {
   type ReactNode,
 } from 'react'
 import {
-  signInAnon,
   signInWithGoogle,
   onAuthChange,
   getFCMToken,
   requestNotificationPermission,
   saveFCMToken,
 } from '@/lib/firebase'
-import { setPersistence, browserLocalPersistence } from 'firebase/auth'
-import { auth } from '@/lib/firebase'
 import {
   doc,
   getDoc,
   setDoc,
+  onSnapshot,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import type { UserProfile } from '@/types'
@@ -40,7 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
-    const unsub = onAuthChange(async (firebaseUser) => {
+    const unsubAuth = onAuthChange(async (firebaseUser) => {
       setUser(firebaseUser)
       if (!firebaseUser) {
         setProfile(null)
@@ -52,32 +50,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const tokenResult = await firebaseUser.getIdTokenResult()
         setIsAdmin(!!tokenResult.claims.admin)
-
-        const profileSnap = await getDoc(doc(db, 'users', firebaseUser.uid))
-        const data = profileSnap.data()
-        if (data?.profile) {
-          setProfile(data.profile as UserProfile)
-        } else {
-          setProfile(null)
-        }
       } catch {
-        setProfile(null)
         setIsAdmin(false)
       } finally {
         setLoading(false)
       }
     })
 
-    return unsub
+    return unsubAuth
   }, [])
 
   useEffect(() => {
-    if (!user) {
-      setPersistence(auth, browserLocalPersistence)
-        .then(() => signInAnon())
-        .catch(() => setLoading(false))
-    }
-  }, [user])
+    if (!user) return
+    const userRef = doc(db, 'users', user.uid)
+    const unsubProfile = onSnapshot(userRef, (snap) => {
+      const data = snap.data()
+      if (data?.profile) {
+        setProfile(data.profile as UserProfile)
+      } else {
+        setProfile(null)
+      }
+    }, (err) => {
+      console.error('Profile snapshot error:', err)
+      setProfile(null)
+    })
+    return unsubProfile
+  }, [user?.uid])
 
   const handleSignInWithGoogle = async () => {
     try {
@@ -114,9 +112,13 @@ export async function ensureProfile(uid: string, profileData: Partial<UserProfil
 
 export async function completeOnboarding(uid: string, profileData: UserProfile) {
   await ensureProfile(uid, profileData)
-  const granted = await requestNotificationPermission()
-  if (granted) {
-    const token = await getFCMToken()
-    if (token) await saveFCMToken(uid, token)
+  try {
+    const granted = await requestNotificationPermission()
+    if (granted) {
+      const token = await getFCMToken()
+      if (token) await saveFCMToken(uid, token)
+    }
+  } catch {
+    // התראות לא קריטיות – ממשיכים גם אם נכשל
   }
 }

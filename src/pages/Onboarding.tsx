@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth, completeOnboarding } from '@/hooks/useAuth'
 import { Logo } from '@/components/Logo'
@@ -8,6 +8,12 @@ import type { UserProfile } from '@/types'
 
 const DAY_NAMES = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש']
 
+function getDisplayNameFromUser(user: { displayName?: string | null; email?: string | null }): string {
+  if (user.displayName?.trim()) return user.displayName.trim()
+  if (user.email) return user.email.split('@')[0] || ''
+  return ''
+}
+
 export function Onboarding() {
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -15,6 +21,10 @@ export function Onboarding() {
   const [name, setName] = useState('')
   const [workDays, setWorkDays] = useState<number[]>([0, 1, 2, 3, 4])
   const [reminderTime, setReminderTime] = useState('07:30')
+
+  useEffect(() => {
+    if (user && !name) setName(getDisplayNameFromUser(user))
+  }, [user, name])
 
   const toggleDay = (d: number) => {
     setWorkDays((prev) =>
@@ -31,8 +41,15 @@ export function Onboarding() {
       reminderDensity: 'medium',
       reminderTopics: [],
     }
-    await completeOnboarding(user.uid, profile)
-    navigate('/')
+    try {
+      await completeOnboarding(user.uid, profile)
+      // המתנה קצרה לעדכון ה-profile ב-AuthContext (onSnapshot)
+      await new Promise((r) => setTimeout(r, 150))
+      navigate('/')
+    } catch (err) {
+      console.error('שגיאה בסיום אונבורדינג:', err)
+      navigate('/')
+    }
   }
 
   if (!user) return null
