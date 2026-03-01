@@ -8,6 +8,7 @@ import { useEntries } from '@/hooks/useEntries'
 import { toHebrewMonthYear, dayToGematriya } from '@/lib/hebrewDate'
 import { isHoliday } from '@/lib/holidays'
 
+/** ימי השבוע: ש=שבת (שמאל), א=ראשון (ימין) – עמודה 0=שבת, 6=ראשון */
 const WEEKDAYS = ['ש', 'ו', 'ה', 'ד', 'ג', 'ב', 'א']
 const MONTHS_BEFORE = 6
 const MONTHS_AFTER = 6
@@ -104,15 +105,15 @@ export function Journal() {
                     ? toHebrewMonthYear(monthDate)
                     : format(monthDate, 'MMMM yyyy', { locale: he })}
                 </h2>
-                <div className="grid grid-cols-7 gap-2 mb-2">
+                <div className="grid grid-cols-7 gap-2 mb-2" dir="ltr">
                   {WEEKDAYS.map((d) => (
                     <div key={d} className="text-center text-sm text-muted">
                       {d}
                     </div>
                   ))}
                 </div>
-                <div className="grid grid-cols-7 gap-2">
-                  {Array.from({ length: monthStart.getDay() }).map((_, i) => (
+                <div className="grid grid-cols-7 gap-2" dir="ltr">
+                  {Array.from({ length: 6 - monthStart.getDay() }).map((_, i) => (
                     <div key={`pad-${i}`} />
                   ))}
                   {days.map((day) => {
@@ -128,7 +129,7 @@ export function Journal() {
                         to={`/journal/day/${dateKey}`}
                         className={`aspect-square flex flex-col items-center justify-center rounded-xl overflow-hidden min-h-[44px] ${
                           hasEntry && !entryWithImage ? 'bg-[#6896F0]/20' : ''
-                        } ${isHolidayDay ? 'bg-[#FFC07F]/30' : ''}`}
+                        } ${isHolidayDay ? 'bg-[#FFC07F]/50' : ''}`}
                       >
                         {entryWithImage ? (
                           <img

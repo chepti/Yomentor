@@ -9,6 +9,7 @@ import {
   ChevronUp,
 } from 'lucide-react'
 import { EmojiPicker } from './EmojiPicker'
+import { decodeHtmlForEditor } from '@/lib/stripHtml'
 
 const HIGHLIGHT_COLORS = [
   { name: 'צהוב', value: '#FFEB3B' },
@@ -59,9 +60,8 @@ export function RichTextEditor({
   // סנכרון ערך חיצוני לעורך + חיבור אירועי צ'קליסט
   useEffect(() => {
     if (!editorRef.current || isInternalChange.current) return
-    if (editorRef.current.innerHTML !== value) {
-      editorRef.current.innerHTML = value || ''
-    }
+    const html = decodeHtmlForEditor(value || '')
+    editorRef.current.innerHTML = html || ''
     const attachChecklistHandlers = () => {
       editorRef.current?.querySelectorAll('.checklist-block').forEach((blockEl) => {
         const block = blockEl as HTMLElement

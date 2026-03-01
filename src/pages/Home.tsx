@@ -148,11 +148,7 @@ export function Home() {
           return (
           <Link
             key={entry.id}
-            to={
-              entry.setId
-                ? `/sets/${entry.setId}/write/${entry.questionId ?? 0}`
-                : `/write?date=${entry.date?.toDate?.()?.toISOString?.()?.split('T')[0]}&entryId=${entry.id}`
-            }
+            to={`/write?date=${entry.date?.toDate?.()?.toISOString?.()?.split('T')[0]}&entryId=${entry.id}`}
           >
             <Card className={`border-r-4 hover:opacity-95 transition-opacity`} style={{ borderRightColor: stripColor }}>
               <div className="flex gap-3">

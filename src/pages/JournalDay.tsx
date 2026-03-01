@@ -57,7 +57,7 @@ export function JournalDay() {
         {dayEntries.map((entry) => (
           <Link
             key={entry.id}
-            to={entry.setId ? `/sets/${entry.setId}/write/${entry.questionId ?? 0}` : `/write?date=${date}&entryId=${entry.id}`}
+            to={`/write?date=${date}&entryId=${entry.id}`}
           >
             <Card className="border-r-4 border-[#6896F0]/40 hover:border-[#6896F0]/70 transition-colors">
               <div className="flex gap-3">

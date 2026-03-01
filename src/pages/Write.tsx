@@ -207,6 +207,7 @@ export function Write() {
           </div>
         )}
         <RichTextEditor
+          key={existingId ?? 'new'}
           value={text}
           onChange={setText}
           placeholder="כתבי כאן..."

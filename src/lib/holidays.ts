@@ -9,8 +9,12 @@ const SUMMER_VACATION_RANGES: { start: string; end: string }[] = [
   { start: '2028-06-20', end: '2028-08-31' },
 ]
 
+/** מפתח תאריך YYYY-MM-DD לפי שעון מקומי (לא UTC) */
 function toDateKey(d: Date): string {
-  return d.toISOString().split('T')[0]
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
 function isInRange(dateKey: string, range: { start: string; end: string }): boolean {
@@ -22,11 +26,19 @@ function isInRange(dateKey: string, range: { start: string; end: string }): bool
  * כולל: חגים עבריים (hebcal) + חופש גדול של משרד החינוך
  */
 export function isHoliday(date: Date): boolean {
-  const dateKey = toDateKey(date)
+  // שימוש בצהריים כדי למנוע בעיות timezone בחצות
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0)
+  const dateKey = toDateKey(d)
 
-  // חגים עבריים (לוח ישראל)
-  const events = HebrewCalendar.getHolidaysOnDate(date, true)
-  if (events && events.length > 0) return true
+  // חגים עבריים (לוח ישראל) – לא כולל שבת רגילה
+  const events = HebrewCalendar.getHolidaysOnDate(d, true)
+  if (events && events.length > 0) {
+    const hasHoliday = events.some((e) => {
+      const desc = ((e as { desc?: string }).desc ?? '').toLowerCase()
+      return desc !== 'shabbat'
+    })
+    if (hasHoliday) return true
+  }
 
   // חופש גדול - משרד החינוך
   if (SUMMER_VACATION_RANGES.some((r) => isInRange(dateKey, r))) return true
