@@ -1,5 +1,6 @@
 const admin = require('firebase-admin')
 const { onSchedule } = require('firebase-functions/v2/scheduler')
+const { onCall, HttpsError } = require('firebase-functions/v2/https')
 
 admin.initializeApp()
 const db = admin.firestore()
@@ -45,3 +46,33 @@ exports.monthlyGoalsReminder = onSchedule(
     }
   }
 )
+
+/** שליחת התראת בדיקה – לשימוש בפיתוח/בדיקה בלבד */
+exports.sendTestNotification = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'יש להתחבר כדי לשלוח התראת בדיקה')
+  }
+  const uid = request.auth.uid
+  const userDoc = await db.collection('users').doc(uid).get()
+  const data = userDoc.exists ? userDoc.data() : {}
+  const profile = data && data.profile
+  const token = profile && profile.fcmToken
+  if (!token) {
+    throw new HttpsError('failed-precondition', 'לא נמצא FCM token. וודאי שהרשמת להתראות בהגדרות.')
+  }
+  const message = {
+    notification: {
+      title: '🔔 התראת בדיקה',
+      body: 'ההתראות פועלות! אפשר להסיר את כפתור הבדיקה.',
+    },
+    data: { type: 'test' },
+    token,
+  }
+  try {
+    await admin.messaging().send(message)
+    return { success: true }
+  } catch (err) {
+    console.error('שגיאה בשליחת התראת בדיקה:', err)
+    throw new HttpsError('internal', 'שליחת ההתראה נכשלה')
+  }
+})

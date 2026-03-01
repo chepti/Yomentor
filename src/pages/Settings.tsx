@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Settings as SettingsIcon, Download, ChevronLeft } from 'lucide-react'
+import { Settings as SettingsIcon, Download, ChevronLeft, Bell } from 'lucide-react'
 import { useAuth, ensureProfile } from '@/hooks/useAuth'
-import { signOut } from '@/lib/firebase'
+import { signOut, sendTestNotification } from '@/lib/firebase'
 import { Card } from '@/components/Card'
 import { Pill } from '@/components/Pill'
 import { useEntries } from '@/hooks/useEntries'
+import { stripHtml } from '@/lib/stripHtml'
 
 const DAY_NAMES = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש']
 const DENSITY_OPTIONS = [
@@ -23,6 +24,8 @@ export function Settings() {
   const [reminderTime, setReminderTime] = useState(profile?.reminderTime || '07:30')
   const [density, setDensity] = useState(profile?.reminderDensity || 'medium')
   const [topics, setTopics] = useState<string[]>(profile?.reminderTopics || [])
+  const [testNotifLoading, setTestNotifLoading] = useState(false)
+  const [testNotifMsg, setTestNotifMsg] = useState<string | null>(null)
 
   useEffect(() => {
     if (profile) {
@@ -57,12 +60,26 @@ export function Settings() {
     })
   }
 
+  const handleTestNotification = async () => {
+    setTestNotifMsg(null)
+    setTestNotifLoading(true)
+    try {
+      await sendTestNotification()
+      setTestNotifMsg('ההתראה נשלחה! בדקי בדפדפן או במכשיר.')
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'שגיאה בשליחה'
+      setTestNotifMsg(msg.includes('FCM') ? 'לא נמצא token. וודאי שהרשמת להתראות.' : msg)
+    } finally {
+      setTestNotifLoading(false)
+    }
+  }
+
   const handleExport = () => {
     const text = entries
       .map((e) => {
         const d = e.date?.toDate?.()
         const dateStr = d ? d.toLocaleDateString('he-IL') : ''
-        return `[${dateStr}]\n${e.text}\n\n`
+        return `[${dateStr}]\n${stripHtml(e.text || '')}\n\n`
       })
       .join('')
     const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
@@ -148,6 +165,20 @@ export function Settings() {
         </div>
         <h3 className="text-sm text-muted mt-4 mb-2">נושאי התראה</h3>
         <div className="flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={handleTestNotification}
+            disabled={testNotifLoading}
+            className="flex items-center gap-2 p-3 rounded-card bg-primary/10 text-primary border border-primary/30"
+          >
+            <Bell size={18} strokeWidth={1.5} />
+            {testNotifLoading ? 'שולח...' : 'שלח התראת בדיקה'}
+          </button>
+          {testNotifMsg && (
+            <p className="text-sm text-muted" dir="rtl">
+              {testNotifMsg}
+            </p>
+          )}
           {TOPICS.map((t) => (
             <label key={t} className="flex items-center gap-2 cursor-pointer">
               <input

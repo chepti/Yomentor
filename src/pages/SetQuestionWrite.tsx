@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, X } from 'lucide-react'
+import { RichTextEditor } from '@/components/RichTextEditor'
 import { useAuth } from '@/hooks/useAuth'
 import { useSets } from '@/hooks/useSets'
 import { useActiveSet } from '@/hooks/useActiveSet'
 import { toHebrewDate } from '@/lib/hebrewDate'
-import { getQuestionText, getQuestionImage } from '@/lib/setUtils'
+import { getQuestionText } from '@/lib/setUtils'
 import {
   collection,
   addDoc,
@@ -36,7 +37,7 @@ export function SetQuestionWrite() {
   const qIndex = parseInt(questionIndex ?? '0', 10)
   const question = setData?.questions?.[qIndex]
   const questionText = question ? getQuestionText(question) : ''
-  const questionImage = question ? getQuestionImage(question) : setData?.coverImageUrl
+  const questionImage = setData?.coverImageUrl
   const totalQuestions = setData?.questions?.length ?? 0
   const date = new Date()
 
@@ -170,11 +171,11 @@ export function SetQuestionWrite() {
 
           <div className="flex-1 flex flex-col mt-auto">
             <div className="bg-card/95 backdrop-blur rounded-2xl p-4 shadow-lg min-h-[180px]">
-              <textarea
+              <RichTextEditor
                 value={text}
-                onChange={(e) => setText(e.target.value)}
+                onChange={setText}
                 placeholder="כתבי כאן את תשובתך..."
-                className="w-full min-h-[160px] bg-transparent border-0 resize-none focus:outline-none text-text"
+                minHeight="160px"
               />
             </div>
             <button

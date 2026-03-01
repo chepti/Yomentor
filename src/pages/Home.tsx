@@ -8,7 +8,8 @@ import { useEntries } from '@/hooks/useEntries'
 import { useMonthlyGoals } from '@/hooks/useMonthlyGoals'
 import { useResolvedActiveSet } from '@/hooks/useResolvedActiveSet'
 import { getHebrewMonthKey } from '@/lib/hebrewDate'
-import { getQuestionText, getQuestionImage } from '@/lib/setUtils'
+import { getQuestionText } from '@/lib/setUtils'
+import { stripHtml } from '@/lib/stripHtml'
 
 function getQuestionIndexForToday(
   startedAt: { toDate?: () => Date } | Date | undefined,
@@ -47,7 +48,7 @@ export function Home() {
     : 0
   const todayQuestion = activeSetData?.questions?.[todayQuestionIndex]
   const todayQuestionText = todayQuestion ? getQuestionText(todayQuestion) : ''
-  const todayQuestionImage = todayQuestion ? getQuestionImage(todayQuestion) : activeSetData?.coverImageUrl
+  const todayQuestionImage = activeSetData?.coverImageUrl
 
   return (
     <div className="p-4">
@@ -162,10 +163,10 @@ export function Home() {
                     </span>
                   </div>
                   <h4 className="font-bold mb-1">
-                    {entry.questionText ? entry.questionText.slice(0, 40) : entry.text?.slice(0, 30) || 'ללא כותרת'}
-                    {((entry.questionText?.length ?? 0) > 40 || (entry.text?.length ?? 0) > 30) ? '...' : ''}
+                    {entry.questionText ? entry.questionText.slice(0, 40) : stripHtml(entry.text || '').slice(0, 30) || 'ללא כותרת'}
+                    {((entry.questionText?.length ?? 0) > 40 || stripHtml(entry.text || '').length > 30) ? '...' : ''}
                   </h4>
-                  <p className="text-sm text-muted line-clamp-2">{entry.text}</p>
+                  <p className="text-sm text-muted line-clamp-2">{stripHtml(entry.text || '')}</p>
                 </div>
                 {entry.imageUrl && (
                   <img

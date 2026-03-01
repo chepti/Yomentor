@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useEntries } from '@/hooks/useEntries'
 import { toHebrewDate } from '@/lib/hebrewDate'
 import { Card } from '@/components/Card'
+import { stripHtml } from '@/lib/stripHtml'
 
 export function JournalDay() {
   const { date } = useParams<{ date: string }>()
@@ -72,7 +73,7 @@ export function JournalDay() {
                       {entry.questionText}
                     </p>
                   )}
-                  <p className="line-clamp-3">{entry.text}</p>
+                  <p className="line-clamp-3">{stripHtml(entry.text || '')}</p>
                 </div>
                 {entry.imageUrl && (
                   <img

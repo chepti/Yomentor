@@ -11,6 +11,7 @@ import {
 } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 import { getStorage } from 'firebase/storage'
+import { getFunctions, httpsCallable } from 'firebase/functions'
 import { getMessaging, getToken, onMessage, type Messaging } from 'firebase/messaging'
 
 const firebaseConfig = {
@@ -97,4 +98,12 @@ export async function saveFCMToken(uid: string, token: string) {
 export function onForegroundMessage(callback: (payload: unknown) => void) {
   if (!messaging) return () => {}
   return onMessage(messaging, callback)
+}
+
+/** שליחת התראת בדיקה – לשימוש בפיתוח בלבד */
+export async function sendTestNotification(): Promise<{ success: boolean }> {
+  const functions = getFunctions(app)
+  const fn = httpsCallable<unknown, { success: boolean }>(functions, 'sendTestNotification')
+  const result = await fn()
+  return result.data
 }

@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Link } from 'react-router-dom'
+import { Camera } from 'lucide-react'
+import { useAuth } from '@/hooks/useAuth'
 import { useSets } from '@/hooks/useSets'
 import { Card } from '@/components/Card'
 import {
@@ -10,23 +12,14 @@ import {
   deleteDoc,
   serverTimestamp,
 } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
+import { db, storage } from '@/lib/firebase'
 import { getHebrewMonthKey } from '@/lib/hebrewDate'
-import type { Set, SetQuestion } from '@/types'
+import type { Set } from '@/types'
 
-type QuestionInput = { text: string; imageUrl: string }
-
-function toQuestionInput(q: string | SetQuestion): QuestionInput {
-  if (typeof q === 'string') return { text: q, imageUrl: '' }
-  return { text: q.text, imageUrl: q.imageUrl || '' }
-}
-
-function toSetQuestion(q: QuestionInput): SetQuestion | string {
-  if (q.imageUrl?.trim()) return { text: q.text.trim(), imageUrl: q.imageUrl.trim() }
-  return q.text.trim()
-}
 
 export function AdminSets() {
+  const { user } = useAuth()
   const sets = useSets()
   const [editing, setEditing] = useState<{ id: string; set: Set & { id: string } } | null>(null)
   const [title, setTitle] = useState('')
@@ -40,15 +33,19 @@ export function AdminSets() {
   const [enrichmentArticleUrl, setEnrichmentArticleUrl] = useState('')
   const [setType, setSetType] = useState<'curated' | 'monthly'>('curated')
   const [monthKey, setMonthKey] = useState('')
-  const [questions, setQuestions] = useState<QuestionInput[]>([{ text: '', imageUrl: '' }])
+  const [questions, setQuestions] = useState<string[]>([''])
+  const [uploadingCover, setUploadingCover] = useState(false)
+  const [uploadingCreator, setUploadingCreator] = useState(false)
+  const coverInputRef = useRef<HTMLInputElement>(null)
+  const creatorInputRef = useRef<HTMLInputElement>(null)
 
-  const addQuestion = () => setQuestions((q) => [...q, { text: '', imageUrl: '' }])
+  const addQuestion = () => setQuestions((q) => [...q, ''])
   const removeQuestion = (i: number) =>
     setQuestions((q) => q.filter((_, idx) => idx !== i))
-  const updateQuestion = (i: number, field: 'text' | 'imageUrl', v: string) =>
+  const updateQuestion = (i: number, v: string) =>
     setQuestions((q) => {
       const next = [...q]
-      next[i] = { ...next[i], [field]: v }
+      next[i] = v
       return next
     })
 
@@ -65,35 +62,70 @@ export function AdminSets() {
     setEnrichmentArticleUrl('')
     setSetType('curated')
     setMonthKey('')
-    setQuestions([{ text: '', imageUrl: '' }])
+    setQuestions([''])
+  }
+
+  const handleCoverImagePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !user) return
+    setUploadingCover(true)
+    try {
+      const path = `users/${user.uid}/sets/${editing?.id || 'new'}_${Date.now()}_cover.${file.name.split('.').pop() || 'jpg'}`
+      const storageRef = ref(storage, path)
+      await uploadBytes(storageRef, file)
+      const url = await getDownloadURL(storageRef)
+      setCoverImageUrl(url)
+    } catch (err) {
+      console.error('שגיאה בהעלאת תמונה:', err)
+    } finally {
+      setUploadingCover(false)
+      e.target.value = ''
+    }
+  }
+
+  const handleCreatorImagePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !user) return
+    setUploadingCreator(true)
+    try {
+      const path = `users/${user.uid}/sets/${editing?.id || 'new'}_${Date.now()}_creator.${file.name.split('.').pop() || 'jpg'}`
+      const storageRef = ref(storage, path)
+      await uploadBytes(storageRef, file)
+      const url = await getDownloadURL(storageRef)
+      setCreatorImageUrl(url)
+    } catch (err) {
+      console.error('שגיאה בהעלאת תמונה:', err)
+    } finally {
+      setUploadingCreator(false)
+      e.target.value = ''
+    }
   }
 
   const handleSave = async () => {
-    const validQuestions = questions
-      .map((q) => toSetQuestion(q))
-      .filter((q) => (typeof q === 'string' ? q : q.text).trim())
+    const validQuestions = questions.map((q) => q.trim()).filter(Boolean)
     if (!title.trim() || validQuestions.length === 0) return
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       title: title.trim(),
       description: description.trim(),
-      shortDescription: shortDescription.trim() || undefined,
       emoji: emoji.trim() || '🌱',
-      coverImageUrl: coverImageUrl.trim() || undefined,
-      creator:
-        creatorName.trim()
-          ? { name: creatorName.trim(), imageUrl: creatorImageUrl.trim() || undefined }
-          : undefined,
-      enrichment:
-        enrichmentContent.trim() || enrichmentArticleUrl.trim()
-          ? {
-              content: enrichmentContent.trim() || undefined,
-              articleUrl: enrichmentArticleUrl.trim() || undefined,
-            }
-          : undefined,
       type: setType,
-      monthKey: setType === 'monthly' ? (monthKey.trim() || getHebrewMonthKey(new Date())) : undefined,
       questions: validQuestions,
+    }
+    if (shortDescription.trim()) payload.shortDescription = shortDescription.trim()
+    if (coverImageUrl.trim()) payload.coverImageUrl = coverImageUrl.trim()
+    if (creatorName.trim()) {
+      payload.creator = creatorImageUrl.trim()
+        ? { name: creatorName.trim(), imageUrl: creatorImageUrl.trim() }
+        : { name: creatorName.trim() }
+    }
+    if (enrichmentContent.trim() || enrichmentArticleUrl.trim()) {
+      payload.enrichment = {}
+      if (enrichmentContent.trim()) (payload.enrichment as Record<string, string>).content = enrichmentContent.trim()
+      if (enrichmentArticleUrl.trim()) (payload.enrichment as Record<string, string>).articleUrl = enrichmentArticleUrl.trim()
+    }
+    if (setType === 'monthly') {
+      payload.monthKey = monthKey.trim() || getHebrewMonthKey(new Date())
     }
 
     if (editing) {
@@ -122,8 +154,8 @@ export function AdminSets() {
     setMonthKey(set.monthKey || getHebrewMonthKey(new Date()))
     setQuestions(
       set.questions?.length
-        ? set.questions.map((q) => toQuestionInput(q))
-        : [{ text: '', imageUrl: '' }]
+        ? set.questions.map((q) => (typeof q === 'string' ? q : (q as { text: string }).text))
+        : ['']
     )
   }
 
@@ -174,13 +206,37 @@ export function AdminSets() {
           onChange={(e) => setEmoji(e.target.value)}
           className="w-full p-3 rounded-lg bg-bg mb-2"
         />
-        <input
-          type="url"
-          placeholder="קישור לתמונת כיסוי"
-          value={coverImageUrl}
-          onChange={(e) => setCoverImageUrl(e.target.value)}
-          className="w-full p-3 rounded-lg bg-bg mb-2"
-        />
+        <div className="mb-2">
+          <span className="text-sm font-medium">תמונת כיסוי</span>
+          <div className="flex gap-2 mt-1 items-center">
+            <input
+              ref={coverInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleCoverImagePick}
+            />
+            <button
+              type="button"
+              onClick={() => coverInputRef.current?.click()}
+              disabled={uploadingCover || !user}
+              className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary"
+            >
+              <Camera size={20} strokeWidth={1.5} />
+            </button>
+            <input
+              type="url"
+              placeholder="או הדבק קישור לתמונה"
+              value={coverImageUrl}
+              onChange={(e) => setCoverImageUrl(e.target.value)}
+              className="flex-1 p-3 rounded-lg bg-bg"
+            />
+            {coverImageUrl && (
+              <img src={coverImageUrl} alt="" className="w-12 h-12 rounded-lg object-cover" />
+            )}
+          </div>
+          {uploadingCover && <span className="text-xs text-muted">מעלה...</span>}
+        </div>
         <div className="mb-2">
           <span className="text-sm font-medium">יוצר הסט</span>
           <input
@@ -190,13 +246,34 @@ export function AdminSets() {
             onChange={(e) => setCreatorName(e.target.value)}
             className="w-full p-3 rounded-lg bg-bg mt-1"
           />
-          <input
-            type="url"
-            placeholder="קישור לתמונת היוצר"
-            value={creatorImageUrl}
-            onChange={(e) => setCreatorImageUrl(e.target.value)}
-            className="w-full p-3 rounded-lg bg-bg mt-1"
-          />
+          <div className="flex gap-2 mt-1 items-center">
+            <input
+              ref={creatorInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleCreatorImagePick}
+            />
+            <button
+              type="button"
+              onClick={() => creatorInputRef.current?.click()}
+              disabled={uploadingCreator || !user}
+              className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary"
+            >
+              <Camera size={20} strokeWidth={1.5} />
+            </button>
+            <input
+              type="url"
+              placeholder="או הדבק קישור לתמונת היוצר"
+              value={creatorImageUrl}
+              onChange={(e) => setCreatorImageUrl(e.target.value)}
+              className="flex-1 p-3 rounded-lg bg-bg"
+            />
+            {creatorImageUrl && (
+              <img src={creatorImageUrl} alt="" className="w-12 h-12 rounded-full object-cover" />
+            )}
+          </div>
+          {uploadingCreator && <span className="text-xs text-muted">מעלה...</span>}
         </div>
         <div className="mb-2">
           <span className="text-sm font-medium">העשרה וידע</span>
@@ -255,27 +332,20 @@ export function AdminSets() {
             </button>
           </div>
           {questions.map((q, i) => (
-            <div key={i} className="flex flex-col gap-1 mb-3 p-2 rounded-lg bg-bg">
+            <div key={i} className="flex gap-2 mb-2">
               <input
                 type="text"
                 placeholder={`שאלה ${i + 1}`}
-                value={q.text}
-                onChange={(e) => updateQuestion(i, 'text', e.target.value)}
-                className="p-2 rounded-lg bg-card"
-              />
-              <input
-                type="url"
-                placeholder="קישור לתמונה לשאלה (אופציונלי)"
-                value={q.imageUrl}
-                onChange={(e) => updateQuestion(i, 'imageUrl', e.target.value)}
-                className="p-2 rounded-lg bg-card text-sm"
+                value={q}
+                onChange={(e) => updateQuestion(i, e.target.value)}
+                className="flex-1 p-2 rounded-lg bg-bg"
               />
               <button
                 type="button"
                 onClick={() => removeQuestion(i)}
-                className="text-muted text-sm self-start"
+                className="text-muted"
               >
-                ✕ הסר שאלה
+                ✕
               </button>
             </div>
           ))}

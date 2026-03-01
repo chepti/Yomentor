@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, X, Camera, Sparkles, Trash2, Archive } from 'lucide-react'
+import { RichTextEditor } from '@/components/RichTextEditor'
 import { useAuth } from '@/hooks/useAuth'
 import { toHebrewDate } from '@/lib/hebrewDate'
 import { Card } from '@/components/Card'
@@ -205,11 +206,10 @@ export function Write() {
             )}
           </div>
         )}
-        <textarea
+        <RichTextEditor
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={setText}
           placeholder="כתבי כאן..."
-          className="w-full min-h-[180px] bg-transparent border-0 resize-none focus:outline-none"
         />
         {imageError && (
           <p className="mt-2 text-sm text-red-600" role="alert">
