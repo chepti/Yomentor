@@ -14,11 +14,11 @@ const GoogleIcon = () => (
 )
 
 export function Login() {
-  const { user, profile, loading, signInWithGoogle } = useAuth()
+  const { user, profile, profileLoaded, loading, signInWithGoogle } = useAuth()
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-bg"><p className="text-text">טוען...</p></div>
   if (user && profile) return <Navigate to="/" replace />
-  if (user && !profile) return <Navigate to="/onboarding" replace />
+  if (user && profileLoaded && !profile) return <Navigate to="/onboarding" replace />
   const [error, setError] = useState<string | null>(null)
   const [signingIn, setSigningIn] = useState(false)
 

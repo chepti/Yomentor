@@ -79,7 +79,9 @@ npm run build
 
 ## הגדרת אדמין
 
-1. **הפעלת התחברות גוגל**: ב-Firebase Console → Authentication → Sign-in method → הוסף את Google והפעל.
+1. **הפעלת התחברות גוגל בלבד**: ב-Firebase Console → Authentication → Sign-in method:
+   - הפעל **Google**
+   - **כבה** את Anonymous (התחברות אנונימית) – האפליקציה דורשת חשבון גוגל בלבד
 2. **קבלת UID**: המשתמש מתחבר באפליקציה עם Google. UID מופיע ב-Firebase Console → Authentication → Users.
 3. **הגדרת Custom Claim** (פעם אחת):
    - Firebase Console → Project Settings → Service Accounts → Generate new private key
@@ -97,8 +99,8 @@ npm run build
 
 ## בדיקת התראות
 
-1. וודאי שהרשמת להתראות (בהתקנה או בהגדרות).
-2. עברי להגדרות → תזכורות והתראות.
+1. עברי להגדרות → תזכורות והתראות.
+2. אם מופיע "לא נמצא token" – לחצי קודם על "רענן הרשמה להתראות" (יאשר הרשאה וישמור את ה-token).
 3. לחצי על "שלח התראת בדיקה".
 4. כשהאפליקציה פתוחה – יופיע באנר בראש המסך; כשהאפליקציה ברקע – תופיע התראת מערכת.
 

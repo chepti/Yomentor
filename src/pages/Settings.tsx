@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Settings as SettingsIcon, Download, ChevronLeft, Bell } from 'lucide-react'
 import { useAuth, ensureProfile } from '@/hooks/useAuth'
-import { signOut, sendTestNotification } from '@/lib/firebase'
+import { signOut, sendTestNotification, requestNotificationPermission, getFCMToken, saveFCMToken } from '@/lib/firebase'
 import { Card } from '@/components/Card'
 import { Pill } from '@/components/Pill'
 import { useEntries } from '@/hooks/useEntries'
@@ -26,6 +26,7 @@ export function Settings() {
   const [topics, setTopics] = useState<string[]>(profile?.reminderTopics || [])
   const [testNotifLoading, setTestNotifLoading] = useState(false)
   const [testNotifMsg, setTestNotifMsg] = useState<string | null>(null)
+  const [refreshTokenLoading, setRefreshTokenLoading] = useState(false)
 
   useEffect(() => {
     if (profile) {
@@ -60,6 +61,30 @@ export function Settings() {
     })
   }
 
+  const handleRefreshNotificationToken = async () => {
+    if (!user) return
+    setTestNotifMsg(null)
+    setRefreshTokenLoading(true)
+    try {
+      const granted = await requestNotificationPermission()
+      if (granted) {
+        const token = await getFCMToken()
+        if (token) {
+          await saveFCMToken(user.uid, token)
+          setTestNotifMsg('ההרשמה להתראות עודכנה. נסי כעת "שלח התראת בדיקה".')
+        } else {
+          setTestNotifMsg('לא התקבל token מהדפדפן. וודאי שהאתר מאושר להתראות.')
+        }
+      } else {
+        setTestNotifMsg('הרשאת ההתראות נדחתה. אפשר לאשר בהגדרות הדפדפן.')
+      }
+    } catch (e) {
+      setTestNotifMsg('שגיאה בעדכון ההרשמה.')
+    } finally {
+      setRefreshTokenLoading(false)
+    }
+  }
+
   const handleTestNotification = async () => {
     setTestNotifMsg(null)
     setTestNotifLoading(true)
@@ -68,7 +93,7 @@ export function Settings() {
       setTestNotifMsg('ההתראה נשלחה! בדקי בדפדפן או במכשיר.')
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'שגיאה בשליחה'
-      setTestNotifMsg(msg.includes('FCM') ? 'לא נמצא token. וודאי שהרשמת להתראות.' : msg)
+      setTestNotifMsg(msg.includes('FCM') || msg.includes('token') ? 'לא נמצא token. לחצי על "רענן הרשמה להתראות" ואז "שלח התראת בדיקה".' : msg)
     } finally {
       setTestNotifLoading(false)
     }
@@ -109,9 +134,16 @@ export function Settings() {
           </div>
         </Card>
         <Card className="mb-2">
-          <div className="flex justify-between items-center">
-            <span>פרופיל משתמש</span>
-            <ChevronLeft size={20} strokeWidth={1.5} className="text-icon-secondary" />
+          <div className="flex flex-col gap-2">
+            <span className="text-muted text-sm">שם להצגה</span>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onBlur={handleSave}
+              placeholder="השם שלך"
+              className="bg-transparent border-0 p-0 font-medium"
+            />
           </div>
         </Card>
         <Card className="mb-2">
@@ -165,6 +197,14 @@ export function Settings() {
         </div>
         <h3 className="text-sm text-muted mt-4 mb-2">נושאי התראה</h3>
         <div className="flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={handleRefreshNotificationToken}
+            disabled={refreshTokenLoading}
+            className="flex items-center gap-2 p-3 rounded-card bg-card border border-gray-200 text-muted text-sm"
+          >
+            {refreshTokenLoading ? 'מעדכן...' : 'רענן הרשמה להתראות'}
+          </button>
           <button
             type="button"
             onClick={handleTestNotification}

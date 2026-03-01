@@ -15,9 +15,10 @@ import { Settings } from '@/pages/Settings'
 import { AdminSets } from '@/pages/admin/AdminSets'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, profile, loading } = useAuth()
+  const { user, profile, profileLoaded, loading } = useAuth()
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-bg"><p className="text-text">טוען...</p></div>
   if (!user) return <Navigate to="/login" replace />
+  if (!profileLoaded) return <div className="min-h-screen flex items-center justify-center bg-bg"><p className="text-text">טוען...</p></div>
   if (!profile) return <Onboarding />
   return <>{children}</>
 }

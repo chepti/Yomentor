@@ -7,6 +7,7 @@ import {
 } from 'react'
 import {
   signInWithGoogle,
+  signOut,
   onAuthChange,
   getFCMToken,
   requestNotificationPermission,
@@ -24,6 +25,7 @@ import type { UserProfile } from '@/types'
 interface AuthContextValue {
   user: import('firebase/auth').User | null
   profile: UserProfile | null
+  profileLoaded: boolean
   loading: boolean
   isAdmin: boolean
   signInWithGoogle: () => Promise<void>
@@ -34,12 +36,22 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<import('firebase/auth').User | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [profileLoaded, setProfileLoaded] = useState(false)
   const [loading, setLoading] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
     const unsubAuth = onAuthChange(async (firebaseUser) => {
+      if (firebaseUser?.isAnonymous) {
+        await signOut()
+        setUser(null)
+        setProfile(null)
+        setProfileLoaded(false)
+        setLoading(false)
+        return
+      }
       setUser(firebaseUser)
+      setProfileLoaded(!firebaseUser)
       if (!firebaseUser) {
         setProfile(null)
         setIsAdmin(false)
@@ -62,6 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!user) return
+    setProfileLoaded(false)
     const userRef = doc(db, 'users', user.uid)
     const unsubProfile = onSnapshot(userRef, (snap) => {
       const data = snap.data()
@@ -70,9 +83,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setProfile(null)
       }
+      setProfileLoaded(true)
     }, (err) => {
       console.error('Profile snapshot error:', err)
       setProfile(null)
+      setProfileLoaded(true)
     })
     return unsubProfile
   }, [user?.uid])
@@ -87,7 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, isAdmin, signInWithGoogle: handleSignInWithGoogle }}>
+    <AuthContext.Provider value={{ user, profile, profileLoaded, loading, isAdmin, signInWithGoogle: handleSignInWithGoogle }}>
       {children}
     </AuthContext.Provider>
   )

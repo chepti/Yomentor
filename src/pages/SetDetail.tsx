@@ -101,28 +101,47 @@ export function SetDetail() {
         </div>
       )}
 
-      <div className="flex items-center gap-3 mb-4">
-        <span className="text-4xl">{setData.emoji}</span>
-        <div>
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <div className="flex items-center gap-3">
+          <span className="text-4xl">{setData.emoji}</span>
           <h2 className="text-xl font-bold">{setData.title}</h2>
-          <p className="text-sm text-muted">{daysCount} ימים</p>
+        </div>
+        <div className="flex-shrink-0 px-4 py-2 rounded-[50px] bg-primary text-white font-bold text-sm shadow-md">
+          {daysCount} ימים
         </div>
       </div>
 
-      {setData.creator && (
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center overflow-hidden">
-            {setData.creator.imageUrl ? (
-              <img src={setData.creator.imageUrl} alt="" className="w-full h-full object-cover" />
-            ) : (
-              <User size={24} className="text-primary" />
-            )}
-          </div>
-          <span className="font-medium">{setData.creator.name}</span>
-        </div>
-      )}
-
       <p className="text-muted mb-6">{setData.description}</p>
+
+      <div className="flex flex-col gap-3 mb-6">
+        {!isActive ? (
+          <>
+            <button
+              type="button"
+              onClick={handleRegister}
+              className="w-full bg-primary text-white py-3 rounded-[50px] font-bold shadow-md"
+            >
+              התחל אתגר
+            </button>
+            {isMonthly && (
+              <button
+                type="button"
+                onClick={hasOptedOut ? handleOptIn : handleOptOut}
+                className="w-full py-2 text-muted text-sm"
+              >
+                {hasOptedOut ? 'הצטרפי לסט החודשי' : 'לא מעוניינת בסט זה'}
+              </button>
+            )}
+          </>
+        ) : (
+          <Link
+            to={`/sets/${setId}/write/${activeSet?.currentQuestionIndex ?? 0}`}
+            className="w-full bg-primary text-white py-3 rounded-[50px] font-bold text-center shadow-md"
+          >
+            המשך לכתיבה
+          </Link>
+        )}
+      </div>
 
       {setData.enrichment && (setData.enrichment.content || setData.enrichment.articleUrl) && (
         <Card className="mb-6">
@@ -144,35 +163,18 @@ export function SetDetail() {
         </Card>
       )}
 
-      <div className="flex flex-col gap-3">
-        {!isActive ? (
-          <>
-            <button
-              type="button"
-              onClick={handleRegister}
-              className="w-full bg-primary text-white py-3 rounded-[50px] font-bold"
-            >
-              הרשמה לסט
-            </button>
-            {isMonthly && (
-              <button
-                type="button"
-                onClick={hasOptedOut ? handleOptIn : handleOptOut}
-                className="w-full py-2 text-muted text-sm"
-              >
-                {hasOptedOut ? 'הצטרפי לסט החודשי' : 'לא מעוניינת בסט זה'}
-              </button>
+      {setData.creator && (
+        <div className="flex items-center gap-3 pt-4 border-t border-muted/20">
+          <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center overflow-hidden">
+            {setData.creator.imageUrl ? (
+              <img src={setData.creator.imageUrl} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <User size={24} className="text-primary" />
             )}
-          </>
-        ) : (
-          <Link
-            to={`/sets/${setId}/write/${activeSet?.currentQuestionIndex ?? 0}`}
-            className="w-full bg-primary text-white py-3 rounded-[50px] font-bold text-center"
-          >
-            המשך לכתיבה
-          </Link>
-        )}
-      </div>
+          </div>
+          <span className="font-medium">{setData.creator.name}</span>
+        </div>
+      )}
     </div>
   )
 }
