@@ -5,7 +5,7 @@ import { RichTextEditor } from '@/components/RichTextEditor'
 import { useAuth } from '@/hooks/useAuth'
 import { useSets } from '@/hooks/useSets'
 import { useActiveSet } from '@/hooks/useActiveSet'
-import { toHebrewDate } from '@/lib/hebrewDate'
+import { toHebrewDate, toGregorianDateShort } from '@/lib/hebrewDate'
 import { getQuestionText } from '@/lib/setUtils'
 import { escapeHtml, extractAnswerFromSetEntry } from '@/lib/stripHtml'
 import {
@@ -155,7 +155,7 @@ export function SetQuestionWrite() {
             <ArrowLeft size={24} strokeWidth={1.5} />
           </button>
           <span className="text-sm drop-shadow">
-            {toHebrewDate(date)}
+            {toHebrewDate(date)} ({toGregorianDateShort(date)})
           </span>
           <button
             type="button"

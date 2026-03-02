@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, X, Camera, Sparkles, Trash2, Archive } from 'lucide-react'
 import { RichTextEditor } from '@/components/RichTextEditor'
 import { useAuth } from '@/hooks/useAuth'
-import { toHebrewDate } from '@/lib/hebrewDate'
+import { toHebrewDate, toGregorianDateShort } from '@/lib/hebrewDate'
 import { Card } from '@/components/Card'
 import {
   collection,
@@ -188,7 +188,9 @@ export function Write() {
         <button type="button" onClick={() => navigate(-1)} className="text-primary">
           <ArrowLeft size={22} strokeWidth={1.5} />
         </button>
-        <span className="text-sm text-muted">{toHebrewDate(date)}</span>
+        <span className="text-sm text-muted">
+          {toHebrewDate(date)} ({toGregorianDateShort(date)})
+        </span>
         <button type="button" onClick={() => navigate('/')} className="text-muted">
           <X size={22} strokeWidth={1.5} />
         </button>

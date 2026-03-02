@@ -68,12 +68,12 @@ export function Settings() {
     try {
       const granted = await requestNotificationPermission()
       if (granted) {
-        const token = await getFCMToken()
-        if (token) {
-          await saveFCMToken(user.uid, token)
+        const result = await getFCMToken()
+        if (result.token) {
+          await saveFCMToken(user.uid, result.token)
           setTestNotifMsg('ההרשמה להתראות עודכנה. נסי כעת "שלח התראת בדיקה".')
         } else {
-          setTestNotifMsg('לא התקבל token מהדפדפן. וודאי שהאתר מאושר להתראות.')
+          setTestNotifMsg('error' in result ? result.error : 'לא התקבל token מהדפדפן.')
         }
       } else {
         setTestNotifMsg('הרשאת ההתראות נדחתה. אפשר לאשר בהגדרות הדפדפן.')

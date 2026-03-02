@@ -1,4 +1,4 @@
-import { HebrewCalendar } from '@hebcal/core'
+import { HebrewCalendar, HDate } from '@hebcal/core'
 
 /** טווחי חופש גדול לפי משרד החינוך (תאריכי סיום לימודים - תחילת ספטמבר) */
 const SUMMER_VACATION_RANGES: { start: string; end: string }[] = [
@@ -31,8 +31,14 @@ export function isHoliday(date: Date): boolean {
   const dateKey = toDateKey(d)
 
   // חגים עבריים (לוח ישראל) – לא כולל שבת רגילה
+  // כט לחודש אינו יום חג כשהחודש עם 30 ימים (יש ל')
+  const hDate = new HDate(d)
+  const hebrewDay = hDate.getDate()
+  const daysInMonth = new HDate(1, hDate.getMonth(), hDate.getFullYear()).daysInMonth()
+  const is29thIn30DayMonth = hebrewDay === 29 && daysInMonth === 30
+
   const events = HebrewCalendar.getHolidaysOnDate(d, true)
-  if (events && events.length > 0) {
+  if (events && events.length > 0 && !is29thIn30DayMonth) {
     const hasHoliday = events.some((e) => {
       const desc = ((e as { desc?: string }).desc ?? '').toLowerCase()
       return desc !== 'shabbat'
@@ -50,9 +56,23 @@ export function isHoliday(date: Date): boolean {
  * מחזיר את שמות החגים/אירועים ביום נתון בעברית (לצורך תצוגה)
  */
 export function getHolidayNames(date: Date): string[] {
-  const events = HebrewCalendar.getHolidaysOnDate(date, true)
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0)
+  const hDate = new HDate(d)
+  const hebrewDay = hDate.getDate()
+  const daysInMonth = new HDate(1, hDate.getMonth(), hDate.getFullYear()).daysInMonth()
+  const is29thIn30DayMonth = hebrewDay === 29 && daysInMonth === 30
+
+  if (is29thIn30DayMonth) {
+    const dateKey = toDateKey(d)
+    if (SUMMER_VACATION_RANGES.some((r) => isInRange(dateKey, r))) {
+      return ['חופש גדול']
+    }
+    return []
+  }
+
+  const events = HebrewCalendar.getHolidaysOnDate(d, true)
   if (!events || events.length === 0) {
-    const dateKey = toDateKey(date)
+    const dateKey = toDateKey(d)
     if (SUMMER_VACATION_RANGES.some((r) => isInRange(dateKey, r))) {
       return ['חופש גדול']
     }

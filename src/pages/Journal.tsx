@@ -157,7 +157,7 @@ export function Journal() {
                         to={`/journal/day/${dateKey}`}
                         className={`aspect-square flex flex-col items-center justify-center rounded-xl overflow-hidden min-h-[44px] ${
                           hasEntry && !entryWithImage ? 'bg-[#6896F0]/20' : ''
-                        } ${isHolidayDay ? 'bg-[#FFC07F]/50' : ''}`}
+                        } ${isHolidayDay ? 'bg-[#FFD699]/70' : ''}`}
                       >
                         {entryWithImage ? (
                           <img

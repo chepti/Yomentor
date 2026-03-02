@@ -73,9 +73,10 @@ npm run build
    - Project Settings → General → Your apps → Web app
    - Cloud Messaging → Web Push certificates → VAPID key
 5. העלה את `firestore.rules` ל-Firestore (Rules tab)
-6. **התראות**: הפעל את [FCM Registration API](https://console.cloud.google.com/apis/library/fcmregistrations.googleapis.com) ב-Google Cloud (בחר את הפרויקט של Firebase)
-7. קובץ `firebase-messaging-sw.js` נוצר אוטומטית מ-`.env` בכל `npm run dev` או `npm run build`
-8. להפעלת שמירת תמונות: הרץ `firebase deploy --only storage` להעלאת `storage.rules` ל-Firebase Storage
+6. **התראות**:
+   - הפעל את [FCM Registration API](https://console.cloud.google.com/apis/library/fcmregistrations.googleapis.com) ב-Google Cloud (בחר את הפרויקט)
+   - אם מופיע "Request is missing required authentication credential": ב-Google Cloud Console → APIs & Services → Credentials → בחרי את ה-API Key של האפליקציה → ב-"API restrictions" הוסיפי "FCM Registration API" לרשימה (או השתמשי ב-"Don't restrict key" לבדיקה)
+7. להפעלת שמירת תמונות: הרץ `firebase deploy --only storage` להעלאת `storage.rules` ל-Firebase Storage
 
 ---
 
@@ -105,6 +106,12 @@ npm run build
 2. אם מופיע "לא נמצא token" – לחצי קודם על "רענן הרשמה להתראות" (יאשר הרשאה וישמור את ה-token).
 3. לחצי על "שלח התראת בדיקה".
 4. כשהאפליקציה פתוחה – יופיע באנר בראש המסך; כשהאפליקציה ברקע – תופיע התראת מערכת.
+
+## התראות אוטומטיות
+
+- **התראה יומית לכתיבה** – נשלחת בשעת התזכורת שהגדרת (לפי ימי עבודה וצפיפות)
+- **התראה כשיש סט פעיל** – כשמוגדר סט (מפורש או חודשי), ההתראה כוללת את שם הסט
+- **מטרות חודש** – בראש חודש עברי, הזמנה למלא מטרות
 
 ---
 

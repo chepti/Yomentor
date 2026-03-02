@@ -29,6 +29,11 @@ export function toHebrewDateShort(date: Date): string {
   return hDate.renderGematriya(true, false)
 }
 
+/** תאריך לועזי לפורמט תצוגה (למשל: 2.3.2026) */
+export function toGregorianDateShort(date: Date): string {
+  return date.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric', year: 'numeric' })
+}
+
 /** שם חודש עברי + שנה (למשל: אדר תשפ״ו) */
 export function toHebrewMonthYear(date: Date): string {
   const hDate = new HDate(date)

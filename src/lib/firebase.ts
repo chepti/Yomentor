@@ -69,22 +69,20 @@ export async function requestNotificationPermission(): Promise<boolean> {
   return permission === 'granted'
 }
 
-export async function getFCMToken(): Promise<string | null> {
-  if (!messaging || !VAPID_KEY) return null
+export type GetFCMTokenResult = { token: string } | { token: null; error: string }
+
+export async function getFCMToken(): Promise<GetFCMTokenResult> {
+  if (!messaging) return { token: null, error: 'Firebase Messaging לא זמין (אין Service Worker)' }
+  if (!VAPID_KEY) return { token: null, error: 'VAPID key חסר – בדקי .env' }
   try {
-    const registration = await navigator.serviceWorker.ready
-    const token = await getToken(messaging, {
-      vapidKey: VAPID_KEY,
-      serviceWorkerRegistration: registration,
-    })
-    return token
+    const token = await getToken(messaging, { vapidKey: VAPID_KEY })
+    return token ? { token } : { token: null, error: 'getToken החזיר ריק' }
   } catch (err) {
-    try {
-      const token = await getToken(messaging, { vapidKey: VAPID_KEY })
-      return token
-    } catch {
-      return null
-    }
+    const msg = err instanceof Error ? err.message : String(err)
+    const code = err && typeof err === 'object' && 'code' in err ? (err as { code?: string }).code : ''
+    const full = `${msg}${code ? ` (${code})` : ''}`
+    console.error('[FCM getToken]', err)
+    return { token: null, error: full }
   }
 }
 

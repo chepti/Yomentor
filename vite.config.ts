@@ -5,6 +5,9 @@ import path from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
+  build: {
+    chunkSizeWarningLimit: 1000,
+  },
   plugins: [
     react(),
     VitePWA({
@@ -34,8 +37,13 @@ export default defineConfig({
         ]
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}']
-      }
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        globIgnores: ['**/firebase-messaging-sw.js'],
+      },
+      devOptions: {
+        enabled: true,
+        type: 'module',
+      },
     })
   ],
   resolve: {

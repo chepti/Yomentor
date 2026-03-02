@@ -2,7 +2,8 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useEntries } from '@/hooks/useEntries'
-import { toHebrewDate } from '@/lib/hebrewDate'
+import { toHebrewDate, toGregorianDateShort } from '@/lib/hebrewDate'
+import { getHolidayNames } from '@/lib/holidays'
 import { Card } from '@/components/Card'
 import { getEntryDisplayHtml } from '@/lib/stripHtml'
 
@@ -50,7 +51,16 @@ export function JournalDay() {
         >
           <ArrowLeft size={24} strokeWidth={1.5} />
         </button>
-        <h1 className="text-lg font-bold">{toHebrewDate(dayDate)}</h1>
+        <div>
+          <h1 className="text-lg font-bold">
+            {toHebrewDate(dayDate)} ({toGregorianDateShort(dayDate)})
+          </h1>
+          {getHolidayNames(dayDate).length > 0 && (
+            <p className="text-sm text-primary font-medium mt-0.5">
+              {getHolidayNames(dayDate).join(' · ')}
+            </p>
+          )}
+        </div>
       </header>
 
       <div className="flex flex-col gap-4">

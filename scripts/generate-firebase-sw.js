@@ -1,6 +1,6 @@
 /**
- * יוצר את firebase-messaging-sw.js מתוך .env
- * יש להריץ לפני build: node scripts/generate-firebase-sw.js
+ * יוצר firebase-messaging-sw.js מ-.env
+ * Firebase משתמש בקובץ זה כ-Service Worker נפרד להתראות
  */
 import { readFileSync, writeFileSync, existsSync } from 'fs'
 import { resolve, dirname } from 'path'
@@ -21,15 +21,15 @@ if (existsSync(envPath)) {
 }
 
 const config = {
-  apiKey: env.API_KEY || 'REPLACE_IN_ENV',
-  authDomain: env.AUTH_DOMAIN || 'REPLACE_IN_ENV',
-  projectId: env.PROJECT_ID || 'REPLACE_IN_ENV',
-  storageBucket: env.STORAGE_BUCKET || 'REPLACE_IN_ENV',
-  messagingSenderId: env.MESSAGING_SENDER_ID || 'REPLACE_IN_ENV',
-  appId: env.APP_ID || 'REPLACE_IN_ENV',
+  apiKey: env.API_KEY || 'REPLACE',
+  authDomain: env.AUTH_DOMAIN || 'REPLACE',
+  projectId: env.PROJECT_ID || 'REPLACE',
+  storageBucket: env.STORAGE_BUCKET || 'REPLACE',
+  messagingSenderId: env.MESSAGING_SENDER_ID || 'REPLACE',
+  appId: env.APP_ID || 'REPLACE',
 }
 
-const swContent = `/* נוצר אוטומטית מ-.env - אל תערוך ידנית */
+const swContent = `/* Firebase Messaging SW - נוצר אוטומטית */
 importScripts('https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.14.0/firebase-messaging-compat.js');
 
@@ -45,19 +45,33 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
-  const { title, body } = payload.notification || {};
-  if (title || body) {
-    self.registration.showNotification(title || 'התראה', {
-      body: body || '',
-      icon: '/logo-pisga.png',
-      dir: 'rtl'
-    });
-  }
+  const n = payload.notification || {};
+  const d = payload.data || {};
+  const url = d.url || '/write';
+  const opts = {
+    body: n.body || '',
+    icon: '/logo-pisga.png',
+    image: n.image,
+    data: { url },
+    dir: 'rtl',
+  };
+  return self.registration.showNotification(n.title || 'יומנטור', opts);
+});
+
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const url = e.notification.data?.url || '/write';
+  const fullUrl = url.startsWith('http') ? url : self.location.origin + url;
+  e.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+    if (list.length > 0) {
+      list[0].navigate(fullUrl);
+      list[0].focus();
+    } else {
+      clients.openWindow(fullUrl);
+    }
+  }));
 });
 `
 
-if (config.apiKey === 'REPLACE_IN_ENV') {
-  console.warn('אזהרה: .env חסר או לא מלא. וודאי ש-VITE_FIREBASE_* מוגדרים. התראות לא יעבדו עד אז.')
-}
 writeFileSync(outPath, swContent)
-console.log('firebase-messaging-sw.js נוצר בהצלחה')
+console.log('firebase-messaging-sw.js נוצר')

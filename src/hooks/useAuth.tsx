@@ -130,8 +130,8 @@ export async function completeOnboarding(uid: string, profileData: UserProfile) 
   try {
     const granted = await requestNotificationPermission()
     if (granted) {
-      const token = await getFCMToken()
-      if (token) await saveFCMToken(uid, token)
+      const result = await getFCMToken()
+      if (result.token) await saveFCMToken(uid, result.token)
     }
   } catch {
     // התראות לא קריטיות – ממשיכים גם אם נכשל

@@ -13,8 +13,8 @@ export function useReminders() {
     const setup = async () => {
       const granted = await requestNotificationPermission()
       if (granted) {
-        const token = await getFCMToken()
-        if (token) await saveFCMToken(user.uid, token)
+        const result = await getFCMToken()
+        if (result.token) await saveFCMToken(user.uid, result.token)
       }
     }
     setup()
