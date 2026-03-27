@@ -13,6 +13,8 @@ export interface UserProfile {
   reminderDensity: 'low' | 'medium' | 'high'
   reminderTopics: string[]
   fcmToken?: string
+  /** תצוגת יומן: חודשים עבריים (נשמר ב-Firestore לעומת localStorage בלבד) */
+  journalHebrewCalendar?: boolean
 }
 
 export interface Entry {

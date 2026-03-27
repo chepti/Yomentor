@@ -78,5 +78,63 @@ export function getHolidayNames(date: Date): string[] {
     }
     return []
   }
-  return events.map((e) => (typeof e.render === 'function' ? e.render('he') : e.desc ?? '')).filter(Boolean)
+  return events
+    .filter((e) => ((e as { desc?: string }).desc ?? '').toLowerCase() !== 'shabbat')
+    .map((e) =>
+      typeof e.render === 'function'
+        ? typeof e.renderBrief === 'function'
+          ? e.renderBrief('he-x-NoNikud')
+          : e.render('he-x-NoNikud')
+        : e.desc ?? '',
+    )
+    .filter(Boolean)
+}
+
+/** טקסט קצר לתא ביומן: עד שני אירועים, בלי ניקוד */
+export function getHolidayCalendarCaption(date: Date): string | null {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0)
+  const hDate = new HDate(d)
+  const hebrewDay = hDate.getDate()
+  const daysInMonth = new HDate(1, hDate.getMonth(), hDate.getFullYear()).daysInMonth()
+  const is29thIn30DayMonth = hebrewDay === 29 && daysInMonth === 30
+
+  if (is29thIn30DayMonth) {
+    const dateKey = toDateKey(d)
+    if (SUMMER_VACATION_RANGES.some((r) => isInRange(dateKey, r))) {
+      return 'חופש גדול'
+    }
+    return null
+  }
+
+  const events = HebrewCalendar.getHolidaysOnDate(d, true)
+  if (!events || events.length === 0) {
+    const dateKey = toDateKey(d)
+    if (SUMMER_VACATION_RANGES.some((r) => isInRange(dateKey, r))) {
+      return 'חופש גדול'
+    }
+    return null
+  }
+
+  const parts: string[] = []
+  for (const e of events) {
+    const desc = ((e as { desc?: string }).desc ?? '').toLowerCase()
+    if (desc === 'shabbat') continue
+    const text =
+      typeof e.render === 'function'
+        ? typeof e.renderBrief === 'function'
+          ? e.renderBrief('he-x-NoNikud')
+          : e.render('he-x-NoNikud')
+        : (e as { desc?: string }).desc ?? ''
+    if (text && !parts.includes(text)) parts.push(text)
+    if (parts.length >= 2) break
+  }
+
+  if (parts.length === 0) {
+    const dateKey = toDateKey(d)
+    if (SUMMER_VACATION_RANGES.some((r) => isInRange(dateKey, r))) {
+      return 'חופש גדול'
+    }
+    return null
+  }
+  return parts.join(' · ')
 }

@@ -3,11 +3,11 @@ import { Link } from 'react-router-dom'
 import { ChevronRight, ChevronLeft } from 'lucide-react'
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns'
 import { he } from 'date-fns/locale'
-import { useAuth } from '@/hooks/useAuth'
+import { useAuth, ensureProfile } from '@/hooks/useAuth'
 import { useEntries } from '@/hooks/useEntries'
 import { HDate } from '@hebcal/core'
 import { dayToGematriya, getHebrewMonthBlocks } from '@/lib/hebrewDate'
-import { isHoliday } from '@/lib/holidays'
+import { getHolidayCalendarCaption, isHoliday } from '@/lib/holidays'
 
 /** ימי השבוע: א=ראשון (ימין), ש=שבת (שמאל) – ב-RTL עמודה 0=ימין */
 const WEEKDAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש']
@@ -15,7 +15,7 @@ const MONTHS_BEFORE = 6
 const MONTHS_AFTER = 6
 
 export function Journal() {
-  const { user } = useAuth()
+  const { user, profile, profileLoaded } = useAuth()
   const entries = useEntries(user?.uid)
   const [useHebrewDate, setUseHebrewDate] = useState(() => {
     try {
@@ -25,6 +25,18 @@ export function Journal() {
     }
   })
 
+  useEffect(() => {
+    if (!profileLoaded || !user) return
+    if (profile?.journalHebrewCalendar === true || profile?.journalHebrewCalendar === false) {
+      setUseHebrewDate(profile.journalHebrewCalendar)
+      try {
+        localStorage.setItem('journal-hebrew-view', String(profile.journalHebrewCalendar))
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [profileLoaded, user?.uid, profile?.journalHebrewCalendar])
+
   const toggleHebrewView = () => {
     setUseHebrewDate((v) => {
       const next = !v
@@ -33,11 +45,18 @@ export function Journal() {
       } catch {
         /* ignore */
       }
+      if (user) {
+        void ensureProfile(user.uid, { journalHebrewCalendar: next })
+      }
       return next
     })
   }
   const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const currentMonthRef = useRef<HTMLDivElement>(null)
+  const todayMonthBlockRef = useRef<HTMLDivElement>(null)
+
+  const scrollToTodayMonth = () => {
+    todayMonthBlockRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   const entriesByDate = useMemo(() => {
     const map = new Map<string, (typeof entries)[0][]>()
@@ -74,14 +93,36 @@ export function Journal() {
     })
   }, [useHebrewDate])
 
+  const holidayCaptionByDateKey = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const block of monthBlocks) {
+      const days = eachDayOfInterval({ start: block.monthStart, end: block.monthEnd })
+      for (const day of days) {
+        const key = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`
+        const cap = getHolidayCalendarCaption(day)
+        if (cap) map.set(key, cap)
+      }
+    }
+    return map
+  }, [monthBlocks])
+
+  const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+
   useEffect(() => {
-    currentMonthRef.current?.scrollIntoView({ block: 'start', behavior: 'auto' })
+    todayMonthBlockRef.current?.scrollIntoView({ block: 'start', behavior: 'auto' })
   }, [])
 
   return (
     <div className="p-4">
       <header className="flex flex-wrap items-center justify-between gap-2 mb-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={scrollToTodayMonth}
+            className="text-sm px-3 py-1.5 rounded-full border-2 border-[#2E499B] text-[#2E499B] font-medium bg-transparent"
+          >
+            היום
+          </button>
           <button
             type="button"
             onClick={() => {
@@ -116,7 +157,7 @@ export function Journal() {
 
       <div
         ref={scrollContainerRef}
-        className="overflow-y-auto pb-4"
+        className="journal-calendar-scroll overflow-y-auto pb-4"
         style={{ maxHeight: 'calc(100vh - 180px)' }}
       >
         <div className="flex flex-col gap-8">
@@ -129,7 +170,7 @@ export function Journal() {
             return (
               <div
                 key={`${label}-${idx}`}
-                ref={isCurrentMonth ? currentMonthRef : null}
+                ref={isCurrentMonth ? todayMonthBlockRef : null}
                 className="bg-transparent rounded-card p-4"
               >
                 <h2 className="text-lg font-bold text-center mb-3">{label}</h2>
@@ -150,14 +191,18 @@ export function Journal() {
                     const hasEntry = dayEntries.length > 0
                     const entryWithImage = dayEntries.find((e) => e.imageUrl)
                     const isHolidayDay = isHoliday(day)
+                    const isToday = dateKey === todayKey
+                    const holidayCaption = !entryWithImage ? holidayCaptionByDateKey.get(dateKey) : null
 
                     return (
                       <Link
                         key={dateKey}
                         to={`/journal/day/${dateKey}`}
-                        className={`aspect-square flex flex-col items-center justify-center rounded-xl overflow-hidden min-h-[44px] ${
+                        className={`flex flex-col items-center justify-center rounded-xl overflow-hidden min-h-[44px] aspect-square gap-0.5 p-0.5 ${
                           hasEntry && !entryWithImage ? 'bg-[#6896F0]/20' : ''
-                        } ${isHolidayDay ? 'bg-[#FFD699]/70' : ''}`}
+                        } ${isHolidayDay ? 'bg-[#FFD699]/70' : ''} ${
+                          isToday ? 'border-2 border-[#2E499B] box-border' : ''
+                        }`}
                       >
                         {entryWithImage ? (
                           <img
@@ -166,11 +211,18 @@ export function Journal() {
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <span className="text-sm">
-                            {useHebrewDate
-                              ? dayToGematriya(new HDate(day).getDate())
-                              : format(day, 'd')}
-                          </span>
+                          <>
+                            <span className="text-sm leading-none shrink-0">
+                              {useHebrewDate
+                                ? dayToGematriya(new HDate(day).getDate())
+                                : format(day, 'd')}
+                            </span>
+                            {holidayCaption && (
+                              <span className="text-[9px] leading-tight text-center text-[#2E499B]/90 line-clamp-2 px-0.5 w-full font-medium">
+                                {holidayCaption}
+                              </span>
+                            )}
+                          </>
                         )}
                       </Link>
                     )
