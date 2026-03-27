@@ -8,6 +8,12 @@ const db = admin.firestore()
 /** אדמין מלא: claim או רשימה ב-config/access */
 async function isFullAdmin(uid, token) {
   if (token && token.admin === true) return true
+  try {
+    const u = await admin.auth().getUser(uid)
+    if (u.customClaims && u.customClaims.admin === true) return true
+  } catch (e) {
+    console.warn('isFullAdmin getUser:', e && e.message)
+  }
   const snap = await db.doc('config/access').get()
   if (!snap.exists) return false
   const admins = snap.data().adminUids || []
@@ -217,6 +223,38 @@ exports.monthlyGoalsReminder = onSchedule(
     }
   }
 )
+
+/** עדכון config/access – Admin SDK בלבד (לא תלוי בכללי Firestore בלקוח) */
+exports.updateTeamAccess = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'יש להתחבר')
+  }
+  const uid = request.auth.uid
+  const token = request.auth.token
+  if (!(await isFullAdmin(uid, token))) {
+    throw new HttpsError('permission-denied', 'אין הרשאה לעדכן צוות')
+  }
+  const data = request.data || {}
+  let adminUids = Array.isArray(data.adminUids) ? data.adminUids : []
+  let editorUids = Array.isArray(data.editorUids) ? data.editorUids : []
+  adminUids = [
+    ...new Set(
+      adminUids
+        .filter((x) => typeof x === 'string' && x.trim().length > 0)
+        .map((x) => x.trim())
+    ),
+  ]
+  editorUids = [
+    ...new Set(
+      editorUids
+        .filter((x) => typeof x === 'string' && x.trim().length > 0)
+        .map((x) => x.trim())
+    ),
+  ]
+  editorUids = editorUids.filter((e) => !adminUids.includes(e))
+  await db.doc('config/access').set({ adminUids, editorUids }, { merge: true })
+  return { ok: true }
+})
 
 /** מציאת UID לפי מייל – רק לאדמין מלא (לניהול צוות בהגדרות) */
 exports.lookupUidByEmail = onCall(async (request) => {

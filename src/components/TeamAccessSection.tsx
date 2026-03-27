@@ -1,8 +1,7 @@
 import { useState } from 'react'
-import { doc, setDoc } from 'firebase/firestore'
 import { UserPlus, X } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
-import { db, lookupUidByEmail } from '@/lib/firebase'
+import { lookupUidByEmail, updateTeamAccess } from '@/lib/firebase'
 import { Card } from '@/components/Card'
 
 function shortUid(uid: string) {
@@ -30,11 +29,7 @@ export function TeamAccessSection() {
   if (!isFullAdmin || !user) return null
 
   const persist = async (nextAdmins: string[], nextEditors: string[]) => {
-    await setDoc(
-      doc(db, 'config', 'access'),
-      { adminUids: nextAdmins, editorUids: nextEditors },
-      { merge: true }
-    )
+    await updateTeamAccess(nextAdmins, nextEditors)
   }
 
   const handleAdd = async () => {
@@ -57,7 +52,9 @@ export function TeamAccessSection() {
       setMsg('נשמר')
     } catch (e) {
       const err = e as { code?: string; message?: string }
-      if (err.code === 'functions/not-found' || err.message?.includes('לא נמצא')) {
+      if (err.code === 'functions/permission-denied' || err.message?.includes('permission-denied')) {
+        setMsg('אין הרשאה בשרת. ודאי שפרסת את ה-Functions (updateTeamAccess) ושיש לך claim אדמין.')
+      } else if (err.code === 'functions/not-found' || err.message?.includes('לא נמצא')) {
         setMsg('לא נמצא משתמש – ודאי שהתחבר לפחות פעם אחת עם גוגל')
       } else {
         setMsg(err.message || 'שגיאה בהוספה')
@@ -85,8 +82,13 @@ export function TeamAccessSection() {
           editorUids.filter((u) => u !== uid)
         )
       }
-    } catch {
-      setMsg('שגיאה בהסרה')
+    } catch (e) {
+      const err = e as { code?: string; message?: string }
+      if (err.code === 'functions/permission-denied') {
+        setMsg('אין הרשאה. פרסי Functions ונסי שוב.')
+      } else {
+        setMsg('שגיאה בהסרה')
+      }
     }
   }
 

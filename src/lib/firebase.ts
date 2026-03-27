@@ -118,3 +118,17 @@ export async function lookupUidByEmail(email: string): Promise<{ uid: string }> 
   const result = await fn({ email })
   return result.data
 }
+
+/** עדכון רשימות אדמין/עורך – בשרת (Admin SDK) */
+export async function updateTeamAccess(
+  adminUids: string[],
+  editorUids: string[]
+): Promise<{ ok: boolean }> {
+  const functions = getFunctions(app)
+  const fn = httpsCallable<
+    { adminUids: string[]; editorUids: string[] },
+    { ok: boolean }
+  >(functions, 'updateTeamAccess')
+  const result = await fn({ adminUids, editorUids })
+  return result.data
+}
