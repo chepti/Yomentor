@@ -8,6 +8,7 @@ import { useEntries } from '@/hooks/useEntries'
 import { HDate } from '@hebcal/core'
 import { dayToGematriya, getHebrewMonthBlocks } from '@/lib/hebrewDate'
 import { getHolidayCalendarCaption, isHoliday } from '@/lib/holidays'
+import { extractFirstStickerEmoji } from '@/lib/emojiSticker'
 
 /** ימי השבוע: א=ראשון (ימין), ש=שבת (שמאל) – ב-RTL עמודה 0=ימין */
 const WEEKDAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש']
@@ -190,6 +191,12 @@ export function Journal() {
                     const dayEntries = entriesByDate.get(dateKey) ?? []
                     const hasEntry = dayEntries.length > 0
                     const entryWithImage = dayEntries.find((e) => e.imageUrl)
+                    const stickerEmoji =
+                      !entryWithImage && dayEntries.length > 0
+                        ? dayEntries
+                            .map((e) => extractFirstStickerEmoji(e.text))
+                            .find((s): s is string => Boolean(s))
+                        : null
                     const isHolidayDay = isHoliday(day)
                     const isToday = dateKey === todayKey
                     const holidayCaption = !entryWithImage ? holidayCaptionByDateKey.get(dateKey) : null
@@ -210,6 +217,22 @@ export function Journal() {
                             alt=""
                             className="w-full h-full object-cover"
                           />
+                        ) : stickerEmoji ? (
+                          <div className="flex flex-col items-center justify-center gap-0.5 w-full min-h-0 py-0.5">
+                            <span className="text-[clamp(1.15rem,4.2vw,1.55rem)] leading-none select-none">
+                              {stickerEmoji}
+                            </span>
+                            <span className="text-[10px] leading-none text-muted font-medium">
+                              {useHebrewDate
+                                ? dayToGematriya(new HDate(day).getDate())
+                                : format(day, 'd')}
+                            </span>
+                            {holidayCaption && (
+                              <span className="text-[8px] leading-tight text-center text-[#2E499B]/85 line-clamp-2 px-0.5 w-full font-medium">
+                                {holidayCaption}
+                              </span>
+                            )}
+                          </div>
                         ) : (
                           <>
                             <span className="text-sm leading-none shrink-0">

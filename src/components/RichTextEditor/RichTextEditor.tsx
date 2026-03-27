@@ -35,9 +35,23 @@ export function RichTextEditor({
   className = '',
 }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null)
+  const savedRangeRef = useRef<Range | null>(null)
   const [showToolbar, setShowToolbar] = useState(false)
   const [showHighlightColors, setShowHighlightColors] = useState(false)
   const isInternalChange = useRef(false)
+
+  const captureSelection = useCallback(() => {
+    const sel = window.getSelection()
+    if (!sel || sel.rangeCount === 0 || !editorRef.current) return
+    if (!editorRef.current.contains(sel.anchorNode)) return
+    savedRangeRef.current = sel.getRangeAt(0).cloneRange()
+  }, [])
+
+  useEffect(() => {
+    const onSelChange = () => captureSelection()
+    document.addEventListener('selectionchange', onSelChange)
+    return () => document.removeEventListener('selectionchange', onSelChange)
+  }, [captureSelection])
 
   const emitChange = useCallback(() => {
     if (!editorRef.current) return
@@ -130,16 +144,32 @@ export function RichTextEditor({
   }
 
   const handleEmojiSelect = (emoji: string) => {
+    const ed = editorRef.current
+    if (!ed) return
+    ed.focus()
     const sel = window.getSelection()
-    if (!sel || !editorRef.current) return
-    const range = sel.getRangeAt(0)
+    let range: Range | null = null
+    if (sel && sel.rangeCount > 0 && ed.contains(sel.anchorNode)) {
+      range = sel.getRangeAt(0)
+    } else if (savedRangeRef.current && ed.contains(savedRangeRef.current.commonAncestorContainer)) {
+      range = savedRangeRef.current
+      sel?.removeAllRanges()
+      sel?.addRange(range)
+    } else {
+      range = document.createRange()
+      range.selectNodeContents(ed)
+      range.collapse(false)
+      sel?.removeAllRanges()
+      sel?.addRange(range)
+    }
     const text = document.createTextNode(emoji)
     range.insertNode(text)
     range.setStartAfter(text)
-    range.setEndAfter(text)
-    sel.removeAllRanges()
-    sel.addRange(range)
-    editorRef.current.focus()
+    range.collapse(true)
+    sel?.removeAllRanges()
+    sel?.addRange(range)
+    savedRangeRef.current = range.cloneRange()
+    ed.focus()
     emitChange()
   }
 
@@ -161,6 +191,8 @@ export function RichTextEditor({
         style={{ minHeight }}
         onInput={handleInput}
         onPaste={handlePaste}
+        onKeyUp={captureSelection}
+        onMouseUp={captureSelection}
         suppressContentEditableWarning
       />
 

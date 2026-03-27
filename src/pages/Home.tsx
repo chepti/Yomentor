@@ -10,6 +10,7 @@ import { useResolvedActiveSet } from '@/hooks/useResolvedActiveSet'
 import { getHebrewMonthKey, formatEntryDateDisplay } from '@/lib/hebrewDate'
 import { getQuestionText } from '@/lib/setUtils'
 import { getEntryDisplayHtml } from '@/lib/stripHtml'
+import { extractFirstStickerEmoji } from '@/lib/emojiSticker'
 
 function getQuestionIndexForToday(
   startedAt: { toDate?: () => Date } | Date | undefined,
@@ -205,6 +206,8 @@ export function Home() {
         {entries.slice(0, 5).map((entry, i) => {
           const stripColors = ['#2E499B', '#6896F0', '#FF8000', '#FFCB00', '#E22830', '#4663AC', '#FFC07F']
           const stripColor = stripColors[i % stripColors.length]
+          const sticker =
+            !entry.imageUrl && entry.text ? extractFirstStickerEmoji(entry.text) : null
           return (
           <Link
             key={entry.id}
@@ -225,13 +228,20 @@ export function Home() {
                     dangerouslySetInnerHTML={{ __html: getEntryDisplayHtml(entry) }}
                   />
                 </div>
-                {entry.imageUrl && (
+                {entry.imageUrl ? (
                   <img
                     src={entry.imageUrl}
                     alt=""
                     className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
                   />
-                )}
+                ) : sticker ? (
+                  <div
+                    className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-[#6896F0]/18 to-[#E8EEF9] shadow-inner border border-[#6896F0]/25 text-[2rem] leading-none select-none"
+                    aria-hidden
+                  >
+                    {sticker}
+                  </div>
+                ) : null}
               </div>
             </Card>
           </Link>
