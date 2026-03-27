@@ -18,6 +18,7 @@ import {
 import {
   doc,
   getDoc,
+  getDocFromServer,
   setDoc,
   onSnapshot,
 } from 'firebase/firestore'
@@ -39,6 +40,8 @@ interface AuthContextValue {
   editorUids: string[]
   /** רענון מ-Firestore אחרי עדכון צוות בשרת (כשה-snapshot מתעכב) */
   refreshAccessConfig: () => Promise<void>
+  /** עדכון מקומי מהתשובה של updateTeamAccess (מומלץ אחרי שמירה) */
+  applyAccessSnapshot: (data: AppAccessConfig) => void
   signInWithGoogle: () => Promise<void>
 }
 
@@ -123,24 +126,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return unsub
   }, [user?.uid])
 
+  const applyAccessSnapshot = useCallback((data: AppAccessConfig) => {
+    setAccess({
+      adminUids: normalizeUidList(data.adminUids),
+      editorUids: normalizeUidList(data.editorUids),
+    })
+    setAccessLoaded(true)
+  }, [])
+
   const refreshAccessConfig = useCallback(async () => {
     if (!user) return
+    const ref = doc(db, 'config', 'access')
     try {
-      const snap = await getDoc(doc(db, 'config', 'access'))
+      const snap = await getDocFromServer(ref)
       if (snap.exists()) {
         const d = snap.data()
-        setAccess({
+        applyAccessSnapshot({
           adminUids: normalizeUidList(d.adminUids),
           editorUids: normalizeUidList(d.editorUids),
         })
       } else {
         setAccess(emptyAccess)
+        setAccessLoaded(true)
       }
-      setAccessLoaded(true)
     } catch (e) {
-      console.error('refreshAccessConfig:', e)
+      console.error('refreshAccessConfig (server):', e)
+      try {
+        const snap = await getDoc(ref)
+        if (snap.exists()) {
+          const d = snap.data()
+          applyAccessSnapshot({
+            adminUids: normalizeUidList(d.adminUids),
+            editorUids: normalizeUidList(d.editorUids),
+          })
+        } else {
+          setAccess(emptyAccess)
+          setAccessLoaded(true)
+        }
+      } catch (e2) {
+        console.error('refreshAccessConfig (cache):', e2)
+      }
     }
-  }, [user])
+  }, [user, applyAccessSnapshot])
 
   const { isFullAdmin, canManageSets, staffLoading } = useMemo(() => {
     if (!user) {
@@ -208,6 +235,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         adminUids,
         editorUids,
         refreshAccessConfig,
+        applyAccessSnapshot,
         signInWithGoogle: handleSignInWithGoogle,
       }}
     >

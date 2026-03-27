@@ -25,7 +25,8 @@ type Props = {
 }
 
 export function TeamAccessModal({ open, onClose }: Props) {
-  const { user, isFullAdmin, adminUids, editorUids, refreshAccessConfig } = useAuth()
+  const { user, isFullAdmin, adminUids, editorUids, refreshAccessConfig, applyAccessSnapshot } =
+    useAuth()
   const [input, setInput] = useState('')
   const [role, setRole] = useState<'admin' | 'editor'>('editor')
   const [busy, setBusy] = useState(false)
@@ -49,7 +50,11 @@ export function TeamAccessModal({ open, onClose }: Props) {
   if (!isFullAdmin || !user) return null
 
   const persist = async (nextAdmins: string[], nextEditors: string[]) => {
-    await updateTeamAccess(nextAdmins, nextEditors)
+    const saved = await updateTeamAccess(nextAdmins, nextEditors)
+    applyAccessSnapshot({
+      adminUids: Array.isArray(saved.adminUids) ? saved.adminUids : nextAdmins,
+      editorUids: Array.isArray(saved.editorUids) ? saved.editorUids : nextEditors,
+    })
     await refreshAccessConfig()
   }
 

@@ -119,15 +119,15 @@ export async function lookupUidByEmail(email: string): Promise<{ uid: string }> 
   return result.data
 }
 
-/** עדכון רשימות אדמין/עורך – בשרת (Admin SDK) */
+/** עדכון רשימות אדמין/עורך – בשרת (Admin SDK); מחזיר את מה שנשמר בפועל */
 export async function updateTeamAccess(
   adminUids: string[],
   editorUids: string[]
-): Promise<{ ok: boolean }> {
+): Promise<{ ok: boolean; adminUids: string[]; editorUids: string[] }> {
   const functions = getFunctions(app)
   const fn = httpsCallable<
     { adminUids: string[]; editorUids: string[] },
-    { ok: boolean }
+    { ok: boolean; adminUids: string[]; editorUids: string[] }
   >(functions, 'updateTeamAccess')
   const result = await fn({ adminUids, editorUids })
   return result.data

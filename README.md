@@ -77,6 +77,13 @@ npm run build
    - הפעל את [FCM Registration API](https://console.cloud.google.com/apis/library/fcmregistrations.googleapis.com) ב-Google Cloud (בחר את הפרויקט)
    - אם מופיע "Request is missing required authentication credential": ב-Google Cloud Console → APIs & Services → Credentials → בחרי את ה-API Key של האפליקציה → ב-"API restrictions" הוסיפי "FCM Registration API" לרשימה (או השתמשי ב-"Don't restrict key" לבדיקה)
 7. להפעלת שמירת תמונות: הרץ `firebase deploy --only storage` להעלאת `storage.rules` ל-Firebase Storage
+8. **Cloud Functions + כללי Firestore:** ב-`firebase.json` מוגדר גם `firestore.rules`. בפריסה (במיוחד ב-PowerShell ב-Windows) עטפי את רשימת היעדים במרכאות:
+
+```bash
+firebase deploy --only "functions,firestore:rules"
+```
+
+(בלי מרכאות, הפסיק עלול להישבר והפקודה תיכשל.)
 
 ---
 

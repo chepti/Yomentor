@@ -253,7 +253,7 @@ exports.updateTeamAccess = onCall(async (request) => {
   ]
   editorUids = editorUids.filter((e) => !adminUids.includes(e))
   await db.doc('config/access').set({ adminUids, editorUids }, { merge: true })
-  return { ok: true }
+  return { ok: true, adminUids, editorUids }
 })
 
 /** מציאת UID לפי מייל – רק לאדמין מלא (לניהול צוות בהגדרות) */
