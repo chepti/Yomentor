@@ -203,9 +203,12 @@ export function Home() {
       <Link to="/write" className="block mb-6">
         <Card className="border-r-4 border-[#E22830] bg-gradient-to-l from-[#FF8A4C]/30 to-[#FFCB00]/25 shadow-lg hover:opacity-95 transition-opacity">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#E22830] to-[#FF8000] flex items-center justify-center text-white shadow-md flex-shrink-0">
-              <PenLine size={28} strokeWidth={2} />
-            </div>
+            <PenLine
+              size={32}
+              strokeWidth={2}
+              className="text-[#FF8000] flex-shrink-0"
+              aria-hidden
+            />
             <p className="flex-1 min-w-0 text-lg font-bold text-[#2E499B]">מה הרגע שלך היום?</p>
             <ChevronLeft size={22} className="text-[#4663AC] flex-shrink-0" strokeWidth={2} />
           </div>
