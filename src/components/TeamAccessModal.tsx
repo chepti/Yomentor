@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { UserPlus, X } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { UserPlus, X, Pencil } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { lookupUidByEmail, updateTeamAccess } from '@/lib/firebase'
 import { Card } from '@/components/Card'
@@ -40,6 +40,7 @@ export function TeamAccessModal({ open, onClose }: Props) {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [nameDraft, setNameDraft] = useState<Record<string, string>>({})
+  const [editingNameUid, setEditingNameUid] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open || !isFullAdmin) return
@@ -53,13 +54,34 @@ export function TeamAccessModal({ open, onClose }: Props) {
   }, [open, displayNames])
 
   useEffect(() => {
+    if (!open) {
+      setEditingNameUid(null)
+    }
+  }, [open])
+
+  const cancelEditName = useCallback(() => {
+    setEditingNameUid((uid) => {
+      if (uid) {
+        setNameDraft((d) => ({ ...d, [uid]: displayNames[uid] ?? '' }))
+      }
+      return null
+    })
+  }, [displayNames])
+
+  useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key !== 'Escape') return
+      if (editingNameUid) {
+        e.preventDefault()
+        cancelEditName()
+      } else {
+        onClose()
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+  }, [open, onClose, editingNameUid, cancelEditName])
 
   if (!isFullAdmin || !user) return null
 
@@ -93,12 +115,18 @@ export function TeamAccessModal({ open, onClose }: Props) {
     return d || 'ללא שם'
   }
 
+  const startEditName = (uid: string) => {
+    setNameDraft((d) => ({ ...d, [uid]: displayNames[uid] ?? '' }))
+    setEditingNameUid(uid)
+  }
+
   const saveNameForUid = async (uid: string) => {
     setMsg(null)
     setBusy(true)
     try {
       const v = (nameDraft[uid] ?? '').trim()
       await persist(adminUids, editorUids, { [uid]: v || undefined })
+      setEditingNameUid(null)
       setMsg('שם עודכן')
     } catch (e) {
       const err = e as { code?: string; message?: string }
@@ -149,6 +177,7 @@ export function TeamAccessModal({ open, onClose }: Props) {
       setMsg('לא ניתן להסיר את עצמך מרשימת האדמינים')
       return
     }
+    setEditingNameUid((e) => (e === uid ? null : e))
     setMsg(null)
     try {
       if (from === 'admin') {
@@ -172,6 +201,79 @@ export function TeamAccessModal({ open, onClose }: Props) {
         setMsg('שגיאה בהסרה')
       }
     }
+  }
+
+  const renderMemberRow = (uid: string, listRole: 'admin' | 'editor') => {
+    const isEditing = editingNameUid === uid
+    return (
+      <li key={uid} className="text-sm py-2 border-b border-gray-100 last:border-0">
+        {!isEditing ? (
+          <div className="flex justify-between items-start gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="font-medium">{rowTitle(uid)}</p>
+              <p className="text-xs text-muted mt-0.5" dir="ltr">
+                מזהה: {shortUid(uid)}
+              </p>
+            </div>
+            <div className="flex items-center gap-0.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => startEditName(uid)}
+                className="p-2 rounded-lg text-muted hover:bg-card hover:text-primary"
+                aria-label="עריכת שם"
+                disabled={busy}
+              >
+                <Pencil size={18} strokeWidth={1.5} />
+              </button>
+              <button
+                type="button"
+                onClick={() => removeUid(uid, listRole)}
+                className="p-2 rounded-lg text-muted hover:text-red-600"
+                aria-label="הסרה מהרשימה"
+                disabled={busy}
+              >
+                <X size={18} strokeWidth={1.5} />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <p className="text-xs text-muted" dir="ltr">
+              מזהה: {shortUid(uid)}
+            </p>
+            <div className="flex gap-2 flex-wrap items-center">
+              <input
+                type="text"
+                value={nameDraft[uid] ?? ''}
+                onChange={(e) =>
+                  setNameDraft((d) => ({ ...d, [uid]: e.target.value }))
+                }
+                placeholder="שם לתצוגה"
+                className="flex-1 min-w-[8rem] p-2 rounded-lg bg-bg border border-gray-100 text-sm"
+                disabled={busy}
+                autoFocus
+              />
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => saveNameForUid(uid)}
+                className="px-3 py-2 text-sm rounded-lg bg-primary text-white"
+              >
+                שמירה
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={cancelEditName}
+                className="px-3 py-2 text-sm rounded-lg bg-card text-muted"
+              >
+                ביטול
+              </button>
+            </div>
+          </div>
+        )}
+      </li>
+    )
   }
 
   if (!open) return null
@@ -258,105 +360,23 @@ export function TeamAccessModal({ open, onClose }: Props) {
 
         <Card className="mb-2">
           <span className="text-sm font-medium block mb-2">אדמינים מלאים</span>
-          <ul className="space-y-3">
+          <ul className="space-y-0">
             {adminUids.length === 0 && (
-              <li className="text-sm text-muted">אין ברשימה – ייתכן שיש גישה רק דרך claim אדמין בפרויקט</li>
-            )}
-            {adminUids.map((uid) => (
-              <li
-                key={uid}
-                className="text-sm py-2 border-b border-gray-100 last:border-0"
-              >
-                <div className="flex justify-between items-start gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium">{rowTitle(uid)}</p>
-                    <p className="text-xs text-muted mt-0.5" dir="ltr">
-                      מזהה: {shortUid(uid)}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeUid(uid, 'admin')}
-                    className="shrink-0 text-muted hover:text-red-600 p-1"
-                    aria-label={`הסר ${shortUid(uid)}`}
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
-                <div className="flex gap-2 mt-2 flex-wrap">
-                  <input
-                    type="text"
-                    value={nameDraft[uid] ?? ''}
-                    onChange={(e) =>
-                      setNameDraft((d) => ({ ...d, [uid]: e.target.value }))
-                    }
-                    placeholder="שם לתצוגה"
-                    className="flex-1 min-w-[8rem] p-2 rounded-lg bg-bg border border-gray-100 text-sm"
-                    disabled={busy}
-                  />
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => saveNameForUid(uid)}
-                    className="px-3 py-2 text-sm rounded-lg bg-primary/15 text-primary"
-                  >
-                    שמירת שם
-                  </button>
-                </div>
+              <li className="text-sm text-muted py-2">
+                אין ברשימה – ייתכן שיש גישה רק דרך claim אדמין בפרויקט
               </li>
-            ))}
+            )}
+            {adminUids.map((uid) => renderMemberRow(uid, 'admin'))}
           </ul>
         </Card>
 
         <Card>
           <span className="text-sm font-medium block mb-2">עורכים – סטים בלבד</span>
-          <ul className="space-y-3">
+          <ul className="space-y-0">
             {editorUids.length === 0 && (
-              <li className="text-sm text-muted">אין עורכים ברשימה</li>
+              <li className="text-sm text-muted py-2">אין עורכים ברשימה</li>
             )}
-            {editorUids.map((uid) => (
-              <li
-                key={uid}
-                className="text-sm py-2 border-b border-gray-100 last:border-0"
-              >
-                <div className="flex justify-between items-start gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium">{rowTitle(uid)}</p>
-                    <p className="text-xs text-muted mt-0.5" dir="ltr">
-                      מזהה: {shortUid(uid)}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeUid(uid, 'editor')}
-                    className="shrink-0 text-muted hover:text-red-600 p-1"
-                    aria-label={`הסר ${shortUid(uid)}`}
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
-                <div className="flex gap-2 mt-2 flex-wrap">
-                  <input
-                    type="text"
-                    value={nameDraft[uid] ?? ''}
-                    onChange={(e) =>
-                      setNameDraft((d) => ({ ...d, [uid]: e.target.value }))
-                    }
-                    placeholder="שם לתצוגה"
-                    className="flex-1 min-w-[8rem] p-2 rounded-lg bg-bg border border-gray-100 text-sm"
-                    disabled={busy}
-                  />
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => saveNameForUid(uid)}
-                    className="px-3 py-2 text-sm rounded-lg bg-primary/15 text-primary"
-                  >
-                    שמירת שם
-                  </button>
-                </div>
-              </li>
-            ))}
+            {editorUids.map((uid) => renderMemberRow(uid, 'editor'))}
           </ul>
         </Card>
       </div>
