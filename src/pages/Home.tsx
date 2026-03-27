@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Bell, ClipboardList, Calendar, Check, PenLine, Plus, Target, ChevronLeft } from 'lucide-react'
 import { Logo } from '@/components/Logo'
 import { Avatar } from '@/components/Avatar'
@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useEntries } from '@/hooks/useEntries'
 import { useMonthlyGoals } from '@/hooks/useMonthlyGoals'
 import { useResolvedActiveSet } from '@/hooks/useResolvedActiveSet'
-import { getHebrewMonthKey } from '@/lib/hebrewDate'
+import { getHebrewMonthKey, formatEntryDateDisplay } from '@/lib/hebrewDate'
 import { getQuestionText } from '@/lib/setUtils'
 import { getEntryDisplayHtml } from '@/lib/stripHtml'
 
@@ -28,7 +28,48 @@ function getQuestionIndexForToday(
   return Math.min(Math.max(0, diffDays), totalQuestions - 1)
 }
 
+function toLocalDateKey(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+/** בוחר מזהה פוסט רנדומלי מהעבר; מעדיף לפני יותר משבוע, אחרת לפני היום, אחרת כל רשומה */
+function pickRandomPastEntryId(
+  entries: { id: string; date?: { toDate?: () => Date } }[],
+  now: Date
+): string | null {
+  if (entries.length === 0) return null
+  const weekAgo = new Date(now)
+  weekAgo.setDate(weekAgo.getDate() - 7)
+  weekAgo.setHours(0, 0, 0, 0)
+  const todayStart = new Date(now)
+  todayStart.setHours(0, 0, 0, 0)
+
+  const olderThanWeek = entries.filter((e) => {
+    const d = e.date?.toDate?.()
+    if (!d) return false
+    return d < weekAgo
+  })
+  if (olderThanWeek.length > 0) {
+    return olderThanWeek[Math.floor(Math.random() * olderThanWeek.length)]!.id
+  }
+  const beforeToday = entries.filter((e) => {
+    const d = e.date?.toDate?.()
+    if (!d) return false
+    const day = new Date(d)
+    day.setHours(0, 0, 0, 0)
+    return day < todayStart
+  })
+  if (beforeToday.length > 0) {
+    return beforeToday[Math.floor(Math.random() * beforeToday.length)]!.id
+  }
+  return entries[Math.floor(Math.random() * entries.length)]!.id
+}
+
 export function Home() {
+  const navigate = useNavigate()
   const { user } = useAuth()
   const entries = useEntries(user?.uid)
   const currentMonthKey = getHebrewMonthKey(new Date())
@@ -62,6 +103,39 @@ export function Home() {
 
       <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4" style={{ scrollbarWidth: 'none' }}>
         <Link
+          to={`/journal/day/${toLocalDateKey(new Date())}`}
+          className="flex-shrink-0 w-20 h-20 rounded-full bg-[#6896F0]/20 shadow-soft flex flex-col items-center justify-center border-2 border-[#6896F0] relative transition-transform hover:scale-105"
+        >
+          <PenLine size={28} strokeWidth={2} className="text-[#4663AC]" />
+          <p className="text-xs mt-12 absolute bottom-[-18px] text-center leading-tight px-0.5">היום</p>
+        </Link>
+        <button
+          type="button"
+          onClick={() => {
+            const id = pickRandomPastEntryId(entries, new Date())
+            if (!id) return
+            const entry = entries.find((e) => e.id === id)
+            const d = entry?.date?.toDate?.()
+            const dateKey = d ? toLocalDateKey(d) : toLocalDateKey(new Date())
+            navigate(`/write?date=${dateKey}&entryId=${id}`)
+          }}
+          className="flex-shrink-0 w-20 h-20 rounded-full bg-[#FF8000]/20 shadow-soft flex flex-col items-center justify-center border-2 border-[#FF8000] relative transition-transform hover:scale-105"
+        >
+          <Calendar size={28} strokeWidth={1.5} className="text-[#FF8000]" />
+          <p className="text-xs mt-12 absolute bottom-[-18px] text-center leading-tight px-0.5">קפיצה לעבר</p>
+        </button>
+        <Link
+          to={
+            activeSetData && activeSet
+              ? `/sets/${activeSetData.id}/write/${todayQuestionIndex}`
+              : '/sets'
+          }
+          className="flex-shrink-0 w-20 h-20 rounded-full bg-[#6896F0]/20 shadow-soft flex flex-col items-center justify-center border-2 border-[#6896F0] relative transition-transform hover:scale-105"
+        >
+          <ClipboardList size={28} strokeWidth={1.5} className="text-[#6896F0]" />
+          <p className="text-xs mt-12 absolute bottom-[-18px] text-center leading-tight px-0.5">סט פעיל</p>
+        </Link>
+        <Link
           to="/goals"
           className="flex-shrink-0 w-20 h-20 rounded-full shadow-soft flex flex-col items-center justify-center border-2 relative transition-transform hover:scale-105"
           style={{
@@ -74,22 +148,8 @@ export function Home() {
           ) : (
             <Target size={28} strokeWidth={1.5} className="text-[#FF8000]" />
           )}
-          <p className="text-xs mt-12 absolute bottom-[-18px]">
-            {hasMonthlyGoals ? 'מטרות חודש' : 'מטרות חודש'}
-          </p>
+          <p className="text-xs mt-12 absolute bottom-[-18px]">מטרות חודש</p>
         </Link>
-        <div className="flex-shrink-0 w-20 h-20 rounded-full bg-[#6896F0]/20 shadow-soft flex flex-col items-center justify-center border-2 border-[#6896F0] relative">
-          <ClipboardList size={28} strokeWidth={1.5} className="text-[#6896F0]" />
-          <p className="text-xs mt-12 absolute bottom-[-18px]">סט פעיל</p>
-        </div>
-        <div className="flex-shrink-0 w-20 h-20 rounded-full bg-[#FF8000]/20 shadow-soft flex flex-col items-center justify-center border-2 border-[#FF8000] relative">
-          <Calendar size={28} strokeWidth={1.5} className="text-[#FF8000]" />
-          <p className="text-xs mt-12 absolute bottom-[-18px]">לפני שנה</p>
-        </div>
-        <div className="flex-shrink-0 w-20 h-20 rounded-full bg-[#6896F0]/20 shadow-soft flex flex-col items-center justify-center border-2 border-[#6896F0] relative">
-          <Check size={28} strokeWidth={2} className="text-[#6896F0]" />
-          <p className="text-xs mt-12 absolute bottom-[-18px]">היום</p>
-        </div>
       </div>
 
       {activeSetData && todayQuestionText ? (
@@ -140,7 +200,19 @@ export function Home() {
         </Card>
       )}
 
-      <h3 className="text-lg font-bold mb-4 text-[#4663AC]">עדכונים אחרונים</h3>
+      <Link to="/write" className="block mb-6">
+        <Card className="border-r-4 border-[#E22830] bg-gradient-to-l from-[#FF8A4C]/30 to-[#FFCB00]/25 shadow-lg hover:opacity-95 transition-opacity">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#E22830] to-[#FF8000] flex items-center justify-center text-white shadow-md flex-shrink-0">
+              <PenLine size={28} strokeWidth={2} />
+            </div>
+            <p className="flex-1 min-w-0 text-lg font-bold text-[#2E499B]">מה הרגע שלך היום?</p>
+            <ChevronLeft size={22} className="text-[#4663AC] flex-shrink-0" strokeWidth={2} />
+          </div>
+        </Card>
+      </Link>
+
+      <h3 className="text-lg font-bold mb-4 text-[#4663AC]">פוסטים אחרונים</h3>
       <div className="flex flex-col gap-4">
         {entries.slice(0, 5).map((entry, i) => {
           const stripColors = ['#2E499B', '#6896F0', '#FF8000', '#FFCB00', '#E22830', '#4663AC', '#FFC07F']
@@ -155,7 +227,9 @@ export function Home() {
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-start mb-2">
                     <span className="text-xs text-muted">
-                      {entry.date?.toDate?.()?.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })} • היום
+                      {entry.date?.toDate?.()
+                        ? formatEntryDateDisplay(entry.date.toDate())
+                        : ''}
                     </span>
                   </div>
                   <div

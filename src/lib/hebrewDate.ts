@@ -34,6 +34,15 @@ export function toGregorianDateShort(date: Date): string {
   return date.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric', year: 'numeric' })
 }
 
+/** תצוגת תאריך כתיבת פוסט: עברי קצר + לועזי dd/mm/yy */
+export function formatEntryDateDisplay(date: Date): string {
+  const heb = toHebrewDateShort(date)
+  const dd = String(date.getDate()).padStart(2, '0')
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const yy = String(date.getFullYear()).slice(-2)
+  return `${heb} · ${dd}/${mm}/${yy}`
+}
+
 /** שם חודש עברי + שנה (למשל: אדר תשפ״ו) */
 export function toHebrewMonthYear(date: Date): string {
   const hDate = new HDate(date)
