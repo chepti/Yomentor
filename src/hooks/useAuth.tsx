@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useMemo,
   useState,
   type ReactNode,
 } from 'react'
@@ -20,25 +21,36 @@ import {
   onSnapshot,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
-import type { UserProfile } from '@/types'
+import type { AppAccessConfig, UserProfile } from '@/types'
 
 interface AuthContextValue {
   user: import('firebase/auth').User | null
   profile: UserProfile | null
   profileLoaded: boolean
   loading: boolean
-  isAdmin: boolean
+  /** Custom Claim admin או ברשימת adminUids */
+  isFullAdmin: boolean
+  /** אדמין מלא או עורך (רשימת editorUids) – ניהול סטים */
+  canManageSets: boolean
+  /** טעינת רשימות גישה (רק כשאין claim admin) – לנתיבי ניהול סטים */
+  staffLoading: boolean
+  adminUids: string[]
+  editorUids: string[]
   signInWithGoogle: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
+
+const emptyAccess: AppAccessConfig = { adminUids: [], editorUids: [] }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<import('firebase/auth').User | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [profileLoaded, setProfileLoaded] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [isAdmin, setIsAdmin] = useState(false)
+  const [claimAdmin, setClaimAdmin] = useState(false)
+  const [access, setAccess] = useState<AppAccessConfig | null>(null)
+  const [accessLoaded, setAccessLoaded] = useState(false)
 
   useEffect(() => {
     const unsubAuth = onAuthChange(async (firebaseUser) => {
@@ -47,6 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null)
         setProfile(null)
         setProfileLoaded(false)
+        setClaimAdmin(false)
         setLoading(false)
         return
       }
@@ -54,16 +67,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfileLoaded(!firebaseUser)
       if (!firebaseUser) {
         setProfile(null)
-        setIsAdmin(false)
+        setClaimAdmin(false)
         setLoading(false)
         return
       }
 
       try {
         const tokenResult = await firebaseUser.getIdTokenResult()
-        setIsAdmin(!!tokenResult.claims.admin)
+        setClaimAdmin(!!tokenResult.claims.admin)
       } catch {
-        setIsAdmin(false)
+        setClaimAdmin(false)
       } finally {
         setLoading(false)
       }
@@ -71,6 +84,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return unsubAuth
   }, [])
+
+  useEffect(() => {
+    if (!user) {
+      setAccess(null)
+      setAccessLoaded(true)
+      return
+    }
+    setAccessLoaded(false)
+    const unsub = onSnapshot(
+      doc(db, 'config', 'access'),
+      (snap) => {
+        if (snap.exists()) {
+          const d = snap.data()
+          setAccess({
+            adminUids: Array.isArray(d.adminUids) ? d.adminUids : [],
+            editorUids: Array.isArray(d.editorUids) ? d.editorUids : [],
+          })
+        } else {
+          setAccess(emptyAccess)
+        }
+        setAccessLoaded(true)
+      },
+      () => {
+        setAccess(emptyAccess)
+        setAccessLoaded(true)
+      }
+    )
+    return unsub
+  }, [user?.uid])
+
+  const { isFullAdmin, canManageSets, staffLoading } = useMemo(() => {
+    if (!user) {
+      return {
+        isFullAdmin: false,
+        canManageSets: false,
+        staffLoading: false,
+      }
+    }
+    const a = access ?? emptyAccess
+    const inAdmins = a.adminUids.includes(user.uid)
+    const inEditors = a.editorUids.includes(user.uid)
+    const full = claimAdmin || (accessLoaded && inAdmins)
+    const sets = full || (accessLoaded && inEditors)
+    const wait = !claimAdmin && !accessLoaded
+    return {
+      isFullAdmin: full,
+      canManageSets: sets,
+      staffLoading: wait,
+    }
+  }, [user, claimAdmin, access, accessLoaded])
 
   useEffect(() => {
     if (!user) return
@@ -101,8 +164,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const adminUids = access?.adminUids ?? []
+  const editorUids = access?.editorUids ?? []
+
   return (
-    <AuthContext.Provider value={{ user, profile, profileLoaded, loading, isAdmin, signInWithGoogle: handleSignInWithGoogle }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        profile,
+        profileLoaded,
+        loading,
+        isFullAdmin,
+        canManageSets,
+        staffLoading,
+        adminUids,
+        editorUids,
+        signInWithGoogle: handleSignInWithGoogle,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )

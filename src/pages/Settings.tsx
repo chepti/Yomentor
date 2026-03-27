@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Settings as SettingsIcon, Download, ChevronLeft, Bell } from 'lucide-react'
 import { useAuth, ensureProfile } from '@/hooks/useAuth'
+import { TeamAccessSection } from '@/components/TeamAccessSection'
 import { signOut, sendTestNotification, requestNotificationPermission, getFCMToken, saveFCMToken } from '@/lib/firebase'
 import { Card } from '@/components/Card'
 import { Pill } from '@/components/Pill'
@@ -17,7 +18,7 @@ const DENSITY_OPTIONS = [
 const TOPICS = ['וולביינג', 'ניהול זמן', 'הכרת טוב', 'שחרור', 'חוזקות']
 
 export function Settings() {
-  const { user, profile, isAdmin } = useAuth()
+  const { user, profile, isFullAdmin, canManageSets } = useAuth()
   const entries = useEntries(user?.uid)
   const [name, setName] = useState(profile?.name || '')
   const [workDays, setWorkDays] = useState<number[]>(profile?.workDays ?? [0, 1, 2, 3, 4])
@@ -243,7 +244,9 @@ export function Settings() {
         </button>
       </section>
 
-      {isAdmin && (
+      {isFullAdmin && <TeamAccessSection />}
+
+      {canManageSets && (
         <section className="mb-6">
           <Link
             to="/admin/sets"

@@ -8,7 +8,7 @@ import { Card } from '@/components/Card'
 import { getHebrewMonthKey } from '@/lib/hebrewDate'
 
 export function Sets() {
-  const { user, isAdmin } = useAuth()
+  const { user, canManageSets } = useAuth()
   const sets = useSets()
   const { activeSet, activeSetData } = useResolvedActiveSet(user?.uid)
   const optOuts = useSetOptOuts(user?.uid)
@@ -91,7 +91,7 @@ export function Sets() {
       {sets.length === 0 && (
         <Card>
           <p className="text-muted text-center mb-4">אין סטים זמינים.</p>
-          {isAdmin ? (
+          {canManageSets ? (
             <Link
               to="/admin/sets"
               className="flex items-center justify-center gap-2 w-full bg-primary text-white py-3 rounded-[50px]"
@@ -100,12 +100,12 @@ export function Sets() {
               צרי סט חדש
             </Link>
           ) : (
-            <p className="text-muted text-center text-sm">אדמין יכול ליצור סטים.</p>
+            <p className="text-muted text-center text-sm">אדמין או עורך יכולים ליצור סטים.</p>
           )}
         </Card>
       )}
 
-      {isAdmin && sets.length > 0 && (
+      {canManageSets && sets.length > 0 && (
         <Link
           to="/admin/sets"
           className="flex items-center justify-center gap-2 w-full bg-primary/20 text-primary py-3 rounded-[50px] mt-6"

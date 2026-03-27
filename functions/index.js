@@ -4,6 +4,15 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https')
 
 admin.initializeApp()
 const db = admin.firestore()
+
+/** אדמין מלא: claim או רשימה ב-config/access */
+async function isFullAdmin(uid, token) {
+  if (token && token.admin === true) return true
+  const snap = await db.doc('config/access').get()
+  if (!snap.exists) return false
+  const admins = snap.data().adminUids || []
+  return Array.isArray(admins) && admins.includes(uid)
+}
 const projectId = process.env.GCLOUD_PROJECT || admin.app().options.projectId || 'yomentor-pz'
 const baseUrl = `https://${projectId}.web.app`
 
@@ -208,6 +217,33 @@ exports.monthlyGoalsReminder = onSchedule(
     }
   }
 )
+
+/** מציאת UID לפי מייל – רק לאדמין מלא (לניהול צוות בהגדרות) */
+exports.lookupUidByEmail = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'יש להתחבר')
+  }
+  const uid = request.auth.uid
+  const token = request.auth.token
+  if (!(await isFullAdmin(uid, token))) {
+    throw new HttpsError('permission-denied', 'אין הרשאה')
+  }
+  const raw = (request.data && request.data.email) || ''
+  const email = String(raw).trim().toLowerCase()
+  if (!email || !email.includes('@')) {
+    throw new HttpsError('invalid-argument', 'מייל לא תקין')
+  }
+  try {
+    const userRecord = await admin.auth().getUserByEmail(email)
+    return { uid: userRecord.uid }
+  } catch (err) {
+    if (err.code === 'auth/user-not-found') {
+      throw new HttpsError('not-found', 'לא נמצא משתמש עם המייל הזה')
+    }
+    console.error('lookupUidByEmail:', err)
+    throw new HttpsError('internal', 'שגיאה בחיפוש משתמש')
+  }
+})
 
 /** שליחת התראת בדיקה – לשימוש בפיתוח/בדיקה בלבד */
 exports.sendTestNotification = onCall(async (request) => {

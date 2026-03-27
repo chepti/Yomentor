@@ -1,5 +1,11 @@
 import type { Timestamp } from 'firebase/firestore'
 
+/** ניהול צוות – רשימות UID ב-Firestore (config/access) */
+export interface AppAccessConfig {
+  adminUids: string[]
+  editorUids: string[]
+}
+
 export interface UserProfile {
   name: string
   workDays: number[]

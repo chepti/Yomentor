@@ -110,3 +110,11 @@ export async function sendTestNotification(): Promise<{ success: boolean }> {
   const result = await fn()
   return result.data
 }
+
+/** מציאת UID לפי מייל – רק לאדמין מלא */
+export async function lookupUidByEmail(email: string): Promise<{ uid: string }> {
+  const functions = getFunctions(app)
+  const fn = httpsCallable<{ email: string }, { uid: string }>(functions, 'lookupUidByEmail')
+  const result = await fn({ email })
+  return result.data
+}

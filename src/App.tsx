@@ -24,9 +24,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
-  const { user, isAdmin, loading } = useAuth()
-  if (loading) return <div className="min-h-screen flex items-center justify-center">טוען...</div>
-  if (!user || !isAdmin) return <Navigate to="/" replace />
+  const { user, canManageSets, loading, staffLoading } = useAuth()
+  if (loading || staffLoading) {
+    return <div className="min-h-screen flex items-center justify-center">טוען...</div>
+  }
+  if (!user || !canManageSets) return <Navigate to="/" replace />
   return <>{children}</>
 }
 
