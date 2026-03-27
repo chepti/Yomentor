@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, X, Camera, Sparkles, Trash2, Archive, Bookmark } from 'lucide-react'
 import { RichTextEditor } from '@/components/RichTextEditor'
+import { ChecklistTemplateSection } from '@/components/ChecklistTemplateSection'
 import { useAuth } from '@/hooks/useAuth'
 import { toHebrewDate, toGregorianDateShort } from '@/lib/hebrewDate'
 import { Card } from '@/components/Card'
@@ -19,8 +20,9 @@ import { setHasSavedOnce } from '@/hooks/useInstallPrompt'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db, storage } from '@/lib/firebase'
 import { getEntryDisplayHtml } from '@/lib/stripHtml'
-import { getMergedTemplateBody } from '@/lib/mergeTemplateBody'
-import { getPageTemplateById, toLocalDateKey } from '@/lib/pageTemplates'
+import { getMergedTemplateBody, getMergedNotesForChecklist } from '@/lib/mergeTemplateBody'
+import { getPageTemplateById, isChecklistTemplateId, toLocalDateKey } from '@/lib/pageTemplates'
+import { serializeChecklistDocument, parseChecklistDocument } from '@/lib/checklistTemplateHtml'
 import { usePageTemplatePreferences } from '@/hooks/usePageTemplatePreferences'
 
 const PROMPT_TEMPLATES = [
@@ -41,6 +43,10 @@ export function Write() {
   const dateParam = searchParams.get('date')
 
   const [text, setText] = useState('')
+  const [notesHtml, setNotesHtml] = useState('')
+  const [checklistDone, setChecklistDone] = useState<boolean[]>([])
+  const [draftTemplateId, setDraftTemplateId] = useState<string | null>(null)
+
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [showTemplates, setShowTemplates] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -53,6 +59,8 @@ export function Write() {
 
   const [scheduleEnabled, setScheduleEnabled] = useState(false)
   const [scheduleDays, setScheduleDays] = useState(14)
+  const [showScheduleModal, setShowScheduleModal] = useState(false)
+  const [modalDays, setModalDays] = useState(14)
 
   const { saveCustomBody, saving: savingPreference } = usePageTemplatePreferences(user?.uid)
 
@@ -60,6 +68,35 @@ export function Write() {
     dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)
       ? new Date(dateParam + 'T12:00:00')
       : new Date()
+
+  const activeTemplateId = templateIdParam || draftTemplateId
+  const isEditingPublishedEntry = !!existingId
+  const isEditingDraft = !!draftId
+  const isFromTemplateNew = !!templateIdParam && !isEditingPublishedEntry && !isEditingDraft
+
+  const isChecklistMode =
+    !!activeTemplateId &&
+    isChecklistTemplateId(activeTemplateId) &&
+    !isEditingPublishedEntry &&
+    (isFromTemplateNew || isEditingDraft)
+
+  const checklistDef = isChecklistMode ? getPageTemplateById(activeTemplateId!) : undefined
+
+  const getSerializedBody = useCallback((): string => {
+    if (
+      isChecklistMode &&
+      checklistDef?.checklistTitle &&
+      checklistDef.checklistItems?.length
+    ) {
+      return serializeChecklistDocument(
+        checklistDef.checklistTitle,
+        checklistDef.checklistItems,
+        checklistDone,
+        notesHtml
+      )
+    }
+    return text
+  }, [isChecklistMode, checklistDef, checklistDone, notesHtml, text])
 
   useEffect(() => {
     return () => {
@@ -71,12 +108,19 @@ export function Write() {
     if (!user) return
 
     const run = async () => {
+      const resetChecklist = () => {
+        setNotesHtml('')
+        setChecklistDone([])
+        setDraftTemplateId(null)
+      }
+
       if (entryIdParam) {
         const docSnap = await getDoc(doc(db, 'users', user.uid, 'entries', entryIdParam))
         if (docSnap.exists()) {
           const d = docSnap.data()
           setExistingId(docSnap.id)
           setDraftId(null)
+          resetChecklist()
           setText(getEntryDisplayHtml({ text: d.text, questionText: d.questionText }) || '')
           setImageUrl(d.imageUrl || null)
         }
@@ -87,10 +131,31 @@ export function Write() {
         const docSnap = await getDoc(doc(db, 'users', user.uid, 'drafts', draftIdParam))
         if (docSnap.exists()) {
           const d = docSnap.data()
+          const tid = (d.templateId as string) || null
           setExistingId(null)
           setDraftId(docSnap.id)
-          setText(d.text || '')
+          setDraftTemplateId(tid)
           setImageUrl(d.imageUrl || null)
+          const raw = (d.text as string) || ''
+
+          if (tid && isChecklistTemplateId(tid)) {
+            const def = getPageTemplateById(tid)
+            const items = def?.checklistItems ?? []
+            const parsed = parseChecklistDocument(raw)
+            if (parsed && items.length) {
+              const c = [...parsed.completed]
+              while (c.length < items.length) c.push(false)
+              setChecklistDone(c.slice(0, items.length))
+              setNotesHtml(parsed.notesHtml || def?.defaultNotesHtml || '')
+            } else {
+              setChecklistDone(items.map(() => false))
+              setNotesHtml(raw || def?.defaultNotesHtml || '<p><br></p>')
+            }
+            setText(raw)
+          } else {
+            resetChecklist()
+            setText(raw)
+          }
         }
         return
       }
@@ -98,19 +163,32 @@ export function Write() {
       if (templateIdParam) {
         setExistingId(null)
         setDraftId(null)
-        const body = await getMergedTemplateBody(user.uid, templateIdParam)
-        setText(body)
+        setDraftTemplateId(null)
         setImageUrl(null)
         setPreviewUrl((prev) => {
           if (prev) URL.revokeObjectURL(prev)
           return null
         })
         pendingImageRef.current = null
+
+        if (isChecklistTemplateId(templateIdParam)) {
+          const def = getPageTemplateById(templateIdParam)
+          const notes = await getMergedNotesForChecklist(user.uid, templateIdParam)
+          setNotesHtml(notes)
+          setChecklistDone(def?.checklistItems?.map(() => false) ?? [])
+          setText('')
+        } else {
+          const body = await getMergedTemplateBody(user.uid, templateIdParam)
+          setText(body)
+          setNotesHtml('')
+          setChecklistDone([])
+        }
         return
       }
 
       setExistingId(null)
       setDraftId(null)
+      resetChecklist()
       setText('')
       setImageUrl(null)
       setPreviewUrl((prev) => {
@@ -153,15 +231,16 @@ export function Write() {
         urlToSave = await pendingImageRef.current
         pendingImageRef.current = null
       }
+      const bodyText = getSerializedBody()
       if (existingId) {
         await updateDoc(doc(db, 'users', user.uid, 'entries', existingId), {
-          text,
+          text: bodyText,
           imageUrl: urlToSave != null ? urlToSave : deleteField(),
         })
       } else {
         const d = resolveDateForSave()
         await addDoc(collection(db, 'users', user.uid, 'entries'), {
-          text,
+          text: bodyText,
           date: d,
           ...(urlToSave != null && { imageUrl: urlToSave }),
         })
@@ -184,8 +263,9 @@ export function Write() {
       const draftSnap = await getDoc(doc(db, 'users', user.uid, 'drafts', draftId))
       const dayKey = (draftSnap.data()?.dayKey as string) || resolveDayKey()
       const d = new Date(dayKey + 'T12:00:00')
+      const bodyText = getSerializedBody()
       await addDoc(collection(db, 'users', user.uid, 'entries'), {
-        text,
+        text: bodyText,
         date: d,
         ...(urlToSave != null && { imageUrl: urlToSave }),
       })
@@ -205,8 +285,9 @@ export function Write() {
         urlToSave = await pendingImageRef.current
         pendingImageRef.current = null
       }
+      const bodyText = getSerializedBody()
       await updateDoc(doc(db, 'users', user.uid, 'drafts', draftId), {
-        text,
+        text: bodyText,
         imageUrl: urlToSave != null ? urlToSave : deleteField(),
         updatedAt: serverTimestamp(),
       })
@@ -242,8 +323,9 @@ export function Write() {
         })
         scheduleId = schedRef.id
       }
+      const bodyText = getSerializedBody()
       await addDoc(collection(db, 'users', user.uid, 'drafts'), {
-        text,
+        text: bodyText,
         dayKey,
         date: d,
         templateId: templateIdParam || undefined,
@@ -269,8 +351,9 @@ export function Write() {
         pendingImageRef.current = null
       }
       const d = resolveDateForSave()
+      const bodyText = getSerializedBody()
       await addDoc(collection(db, 'users', user.uid, 'entries'), {
-        text,
+        text: bodyText,
         date: d,
         ...(urlToSave != null && { imageUrl: urlToSave }),
       })
@@ -316,7 +399,11 @@ export function Write() {
   }
 
   const applyPromptTemplate = (t: string) => {
-    setText((prev) => (prev ? `${prev}\n\n${t}` : t))
+    if (isChecklistMode) {
+      setNotesHtml((prev) => (prev ? `${prev}<p>${t}</p>` : `<p>${t}</p>`))
+    } else {
+      setText((prev) => (prev ? `${prev}\n\n${t}` : t))
+    }
     setShowTemplates(false)
   }
 
@@ -351,19 +438,50 @@ export function Write() {
   }
 
   const handleSavePersonalTemplate = async () => {
-    if (!templateIdParam || !text.trim()) return
-    await saveCustomBody(templateIdParam, text)
+    const tid = templateIdParam || draftTemplateId
+    if (!tid) return
+    if (isChecklistMode) {
+      if (!notesHtml.trim()) return
+      await saveCustomBody(tid, notesHtml)
+    } else if (text.trim()) {
+      await saveCustomBody(tid, text)
+    }
+  }
+
+  const toggleChecklist = (i: number) => {
+    setChecklistDone((prev) => {
+      const n = [...prev]
+      n[i] = !n[i]
+      return n
+    })
+  }
+
+  const openScheduleModal = () => {
+    setModalDays(scheduleDays)
+    setShowScheduleModal(true)
+  }
+
+  const confirmScheduleInModal = () => {
+    setScheduleDays(Math.max(1, Math.min(60, modalDays)))
+    setScheduleEnabled(true)
+    setShowScheduleModal(false)
+  }
+
+  const cancelScheduleInModal = () => {
+    setShowScheduleModal(false)
   }
 
   const hasImage = !!(imageUrl || previewUrl)
 
-  const isEditingPublishedEntry = !!existingId
-  const isEditingDraft = !!draftId
-  const isFromTemplateNew = !!templateIdParam && !isEditingPublishedEntry && !isEditingDraft
-
   const editorKey = existingId || draftId || templateIdParam || 'new'
 
-  const tplMeta = templateIdParam ? getPageTemplateById(templateIdParam) : undefined
+  const displayTplId = templateIdParam || draftTemplateId
+  const tplMeta = displayTplId ? getPageTemplateById(displayTplId) : undefined
+  const showTplSubtitle =
+    tplMeta && ((isFromTemplateNew && templateIdParam) || (isEditingDraft && !!draftTemplateId))
+
+  const canSavePersonal =
+    (isChecklistMode && !!notesHtml.trim()) || (!isChecklistMode && !!text.trim())
 
   return (
     <div className="min-h-screen bg-bg p-4">
@@ -379,7 +497,7 @@ export function Write() {
         </button>
       </header>
 
-      {tplMeta && isFromTemplateNew && (
+      {showTplSubtitle && tplMeta && (
         <p className="text-sm text-muted mb-2 flex items-center gap-2">
           <span className="text-lg" aria-hidden>
             {tplMeta.emoji}
@@ -401,12 +519,33 @@ export function Write() {
             )}
           </div>
         )}
-        <RichTextEditor
-          key={editorKey}
-          value={text}
-          onChange={setText}
-          placeholder="כתבי כאן..."
-        />
+
+        {isChecklistMode && checklistDef?.checklistItems && checklistDef.checklistTitle ? (
+          <>
+            <ChecklistTemplateSection
+              title={checklistDef.checklistTitle}
+              items={checklistDef.checklistItems}
+              completed={checklistDone}
+              onToggle={toggleChecklist}
+            />
+            <p className="text-xs text-muted mb-2">הערות</p>
+            <RichTextEditor
+              key={`${editorKey}-notes`}
+              value={notesHtml}
+              onChange={setNotesHtml}
+              placeholder="כתבי הערות..."
+              minHeight="140px"
+            />
+          </>
+        ) : (
+          <RichTextEditor
+            key={editorKey}
+            value={text}
+            onChange={setText}
+            placeholder="כתבי כאן..."
+          />
+        )}
+
         {imageError && (
           <p className="mt-2 text-sm text-red-600" role="alert">
             {imageError}
@@ -415,30 +554,79 @@ export function Write() {
       </Card>
 
       {isFromTemplateNew && (
-        <Card className="mb-4">
-          <h4 className="font-bold mb-2 text-sm">חזרה יומית כטיוטה (אופציונלי)</h4>
-          <label className="flex items-center gap-2 text-sm mb-2">
-            <input
-              type="checkbox"
-              checked={scheduleEnabled}
-              onChange={(e) => setScheduleEnabled(e.target.checked)}
-            />
-            ליצור טיוטה כל יום בטווח שבועות (נשמר כטיוטה; לא ביומן עד פרסום)
-          </label>
+        <div className="mb-4">
+          <button
+            type="button"
+            onClick={openScheduleModal}
+            className="w-full text-sm py-2.5 rounded-2xl border border-primary/35 bg-primary/5 text-primary font-medium"
+          >
+            קבע חזרה יומית
+          </button>
           {scheduleEnabled && (
-            <div className="flex items-center gap-2 text-sm">
-              <span>מספר ימים</span>
-              <input
-                type="number"
-                min={1}
-                max={60}
-                value={scheduleDays}
-                onChange={(e) => setScheduleDays(parseInt(e.target.value, 10) || 14)}
-                className="w-16 rounded-lg border border-muted/40 px-2 py-1 bg-bg"
-              />
-            </div>
+            <p className="text-xs text-muted text-center mt-2 leading-relaxed">
+              מוגדר: {scheduleDays} ימים — בכל יום תיווצר טיוטה (לא מופיעה ביומן עד שתפרסמי)
+            </p>
           )}
-        </Card>
+        </div>
+      )}
+
+      {showScheduleModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/45 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="schedule-modal-title"
+          onClick={cancelScheduleInModal}
+        >
+          <div className="w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+          <Card
+            className="max-h-[90vh] overflow-y-auto shadow-xl"
+          >
+            <h3 id="schedule-modal-title" className="font-bold text-lg mb-2">
+              חזרה יומית כטיוטה
+            </h3>
+            <p className="text-sm text-muted mb-4 leading-relaxed">
+              במשך התקופה שתבחרי, האפליקציה תיצור בכל יום טיוטה חדשה לפי התבנית. הטיוטות נשמרות
+              בנפרד מהיומן — רק אחרי &quot;פרסום ליומן&quot; הן יופיעו בהיסטוריית הפוסטים.
+            </p>
+            <label className="block text-sm font-medium mb-2">מספר ימים (1–60)</label>
+            <input
+              type="number"
+              min={1}
+              max={60}
+              value={modalDays}
+              onChange={(e) => setModalDays(parseInt(e.target.value, 10) || 14)}
+              className="w-full rounded-xl border border-muted/40 px-3 py-2 bg-bg mb-4"
+            />
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={confirmScheduleInModal}
+                className="w-full bg-primary text-white py-3 rounded-[50px] font-medium"
+              >
+                הפעלה והחלת טווח
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setScheduleEnabled(false)
+                  cancelScheduleInModal()
+                }}
+                className="w-full py-2 text-muted text-sm"
+              >
+                ביטול חזרה
+              </button>
+              <button
+                type="button"
+                onClick={cancelScheduleInModal}
+                className="w-full py-2 text-primary text-sm font-medium"
+              >
+                סגירה
+              </button>
+            </div>
+          </Card>
+          </div>
+        </div>
       )}
 
       <div className="flex justify-between items-start gap-2 mb-4">
@@ -490,11 +678,11 @@ export function Write() {
           >
             <Sparkles size={20} strokeWidth={1.5} className="text-icon-highlight" />
           </button>
-          {templateIdParam && (
+          {displayTplId && (
             <button
               type="button"
               onClick={() => void handleSavePersonalTemplate()}
-              disabled={savingPreference || !text.trim()}
+              disabled={savingPreference || !canSavePersonal}
               className="w-10 h-10 rounded-full bg-card shadow-soft flex items-center justify-center shrink-0 self-start disabled:opacity-50"
               aria-label="שמירת גרסה אישית לתבנית"
               title="שמירת גרסה אישית לתבנית"

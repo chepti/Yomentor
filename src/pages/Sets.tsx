@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, ChevronLeft, User, FileEdit } from 'lucide-react'
+import { Plus, ChevronLeft, User, FileEdit, ChevronDown } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useSets } from '@/hooks/useSets'
 import { useResolvedActiveSet } from '@/hooks/useResolvedActiveSet'
@@ -9,6 +10,8 @@ import { Card } from '@/components/Card'
 import { getHebrewMonthKey } from '@/lib/hebrewDate'
 import { PAGE_TEMPLATES, toLocalDateKey } from '@/lib/pageTemplates'
 
+const LIBRARY_PREVIEW_COUNT = 5
+
 export function Sets() {
   const { user, canManageSets } = useAuth()
   const sets = useSets()
@@ -17,11 +20,17 @@ export function Sets() {
   const { drafts } = useDrafts(user?.uid)
   const currentMonthKey = getHebrewMonthKey(new Date())
   const todayKey = toLocalDateKey(new Date())
+  const [showAllLibrarySets, setShowAllLibrarySets] = useState(false)
 
   const curatedSets = sets.filter((s) => s.type !== 'monthly')
   const monthlySet = sets.find(
     (s) => s.type === 'monthly' && s.monthKey === currentMonthKey
   )
+
+  const libraryVisible = showAllLibrarySets
+    ? curatedSets
+    : curatedSets.slice(0, LIBRARY_PREVIEW_COUNT)
+  const hasMoreLibrary = curatedSets.length > LIBRARY_PREVIEW_COUNT
 
   return (
     <div className="p-4">
@@ -82,9 +91,36 @@ export function Sets() {
       )}
 
       <section className="mb-6">
-        <h3 className="font-bold mb-3">תבניות עמוד</h3>
+        <h3 className="font-bold mb-3">ספריית הסטים</h3>
+        {curatedSets.length === 0 ? (
+          <p className="text-sm text-muted">אין סטים בספרייה.</p>
+        ) : (
+          <>
+            <div className="grid gap-4">
+              {libraryVisible.map((set) => (
+                <Link key={set.id} to={`/sets/${set.id}`}>
+                  <SetCard set={set} />
+                </Link>
+              ))}
+            </div>
+            {hasMoreLibrary && !showAllLibrarySets && (
+              <button
+                type="button"
+                onClick={() => setShowAllLibrarySets(true)}
+                className="mt-4 w-full flex items-center justify-center gap-2 py-3 rounded-[50px] border border-primary/25 bg-primary/5 text-primary text-sm font-medium"
+              >
+                הצג עוד
+                <ChevronDown size={18} />
+              </button>
+            )}
+          </>
+        )}
+      </section>
+
+      <section className="mb-6">
+        <h3 className="font-bold mb-3">בניית הרגלים</h3>
         <p className="text-sm text-muted mb-3">
-          פתיחת כתיבה עם מבנה מוכן — אפשר לערוך, לשמור כטיוטה או לפרסם ליומן.
+          תבניות כתיבה עם מבנה מוכן — לעריכה, שמירה כטיוטה או פרסום ליומן.
         </p>
         <div className="grid gap-3">
           {PAGE_TEMPLATES.map((tpl) => (
@@ -102,7 +138,7 @@ export function Sets() {
                     <h4 className="font-bold">{tpl.title}</h4>
                     <p className="text-sm text-muted line-clamp-2">{tpl.description}</p>
                     <span className="inline-flex items-center gap-1 mt-2 text-primary text-sm">
-                      פתיחה בתבנית
+                      פתיחה
                       <ChevronLeft size={14} />
                     </span>
                   </div>
@@ -140,17 +176,6 @@ export function Sets() {
           </div>
         </section>
       )}
-
-      <section>
-        <h3 className="font-bold mb-3">ספריית הסטים</h3>
-        <div className="grid gap-4">
-          {curatedSets.map((set) => (
-            <Link key={set.id} to={`/sets/${set.id}`}>
-              <SetCard set={set} />
-            </Link>
-          ))}
-        </div>
-      </section>
 
       {sets.length === 0 && (
         <Card>

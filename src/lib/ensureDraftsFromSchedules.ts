@@ -1,7 +1,7 @@
 import { collection, getDocs, query, where, addDoc, serverTimestamp, Timestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { toLocalDateKey } from '@/lib/pageTemplates'
-import { getMergedTemplateBody } from '@/lib/mergeTemplateBody'
+import { getTemplateInitialDraftBody } from '@/lib/mergeTemplateBody'
 import type { TemplateSchedule } from '@/types'
 
 function dayStart(d: Date): Date {
@@ -37,7 +37,7 @@ export async function ensureDraftsFromSchedules(uid: string | undefined): Promis
     const hasToday = existing.docs.some((d) => d.data().dayKey === todayKey)
     if (hasToday) continue
 
-    const body = await getMergedTemplateBody(uid, s.templateId)
+    const body = await getTemplateInitialDraftBody(uid, s.templateId)
     const d = new Date()
     d.setHours(12, 0, 0, 0)
     await addDoc(collection(db, 'users', uid, 'drafts'), {

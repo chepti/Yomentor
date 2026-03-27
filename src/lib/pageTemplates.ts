@@ -1,12 +1,20 @@
-/** תבניות עמוד סטטיות — HTML לעורך עשיר (RTL) */
+/** תבניות לבניית הרגלים — HTML לעורך עשיר או מבנה צ׳קליסט */
+
+export type PageTemplateKind = 'richtext' | 'checklist'
 
 export interface PageTemplateDef {
   id: string
   title: string
   emoji: string
   description: string
-  /** תוכן HTML ראשוני */
+  kind?: PageTemplateKind
+  /** תוכן HTML ראשוני (לתבניות richtext) */
   bodyHtml: string
+  /** לתבניות checklist */
+  checklistTitle?: string
+  checklistItems?: string[]
+  /** הערות ברירת מחדל (HTML) */
+  defaultNotesHtml?: string
 }
 
 const tableStyle =
@@ -14,102 +22,113 @@ const tableStyle =
 const cellStyle =
   'border:1px solid #c8d4e6;vertical-align:top;padding:10px;min-height:72px;background:#fafbff;'
 
+/** שורת הזמנה לרשימה — נקודת bullet לכתיבה */
+const bulletInvite = '<p dir="rtl" style="margin:0.25em 0;padding-right:0.25em;">• </p>'
+
 export const PAGE_TEMPLATES: PageTemplateDef[] = [
   {
     id: 'gratitude-daily',
     title: 'פתק הודיה יומי',
     emoji: '🙏',
     description: 'כותרות מובנות להודיה — מלאי לפי היום.',
-    bodyHtml: `<p><strong>הודיה יומית</strong></p>
-<p><br></p>
-<p><strong>משהו קטן ששימח אותי היום</strong></p>
-<p><br></p>
-<p><strong>על מה אני מודה כרגע</strong></p>
-<p><br></p>
-<p><strong>מישהו או משהו שאני מעריכה</strong></p>
-<p><br></p>
-<p><strong>רגע שאני רוצה לזכור מהיום</strong></p>
-<p><br></p>`,
+    bodyHtml: `<p dir="rtl"><strong>הודיה יומית</strong></p>
+<p dir="rtl" style="font-size:0.9em;color:#5c6b8a;margin:0.4em 0;">הוסיפי נקודות תחת כל כותרת — רשימה קצרה של דברים.</p>
+<p dir="rtl"><strong>משהו קטן ששימח אותי היום</strong></p>
+${bulletInvite}${bulletInvite}
+<p dir="rtl"><strong>על מה אני מודה כרגע</strong></p>
+${bulletInvite}${bulletInvite}
+<p dir="rtl"><strong>מישהו או משהו שאני מעריכה</strong></p>
+${bulletInvite}${bulletInvite}
+<p dir="rtl"><strong>רגע שאני רוצה לזכור מהיום</strong></p>
+${bulletInvite}${bulletInvite}`,
   },
   {
     id: 'checklist-health',
     title: 'צ׳קליסט יומי — בריאות',
     emoji: '🥗',
     description: 'משימות יומיות עם מיקוד בריאות ואנרגיה.',
-    bodyHtml: `<p><strong>היום — בריאות</strong></p>
-<p><br></p>
-<p>☐ מים / הידרציה</p>
-<p>☐ תנועה קצרה (הליכה, מתיחות)</p>
-<p>☐ ארוחה מאוזנת</p>
-<p>☐ שינה / מנוחה</p>
-<p>☐ משהו שממלא לי את הלב</p>
-<p><br></p>
-<p><strong>הערות</strong></p>
-<p><br></p>`,
+    kind: 'checklist',
+    checklistTitle: 'היום — בריאות',
+    checklistItems: [
+      'מים / הידרציה',
+      'תנועה קצרה (הליכה, מתיחות)',
+      'ארוחה מאוזנת',
+      'שינה / מנוחה',
+      'משהו שממלא לי את הלב',
+    ],
+    defaultNotesHtml: `<p dir="rtl"><strong>הערות</strong></p>
+${bulletInvite}${bulletInvite}`,
+    bodyHtml: '',
   },
   {
     id: 'checklist-teaching',
     title: 'צ׳קליסט יומי — הוראה',
     emoji: '📚',
     description: 'יום בכיתה — מה לעקוב אחריו.',
-    bodyHtml: `<p><strong>היום — הוראה</strong></p>
-<p><br></p>
-<p>☐ הכנה לשיעור הבא</p>
-<p>☐ מעקב אחרי תלמידים שצריכים תשומת לב</p>
-<p>☐ חומרים / ציוד</p>
-<p>☐ רגע חיובי מהשיעור</p>
-<p>☐ משהו לשפר למחר</p>
-<p><br></p>
-<p><strong>הערות</strong></p>
-<p><br></p>`,
+    kind: 'checklist',
+    checklistTitle: 'היום — הוראה',
+    checklistItems: [
+      'הכנה לשיעור הבא',
+      'מעקב אחרי תלמידים שצריכים תשומת לב',
+      'חומרים / ציוד',
+      'רגע חיובי מהשיעור',
+      'משהו לשפר למחר',
+    ],
+    defaultNotesHtml: `<p dir="rtl"><strong>הערות</strong></p>
+${bulletInvite}${bulletInvite}`,
+    bodyHtml: '',
   },
   {
     id: 'decision-note',
     title: 'פתק קבלת החלטות',
     emoji: '⚖️',
     description: 'מבנה לפני החלטה — אפשרויות ושיקולים.',
-    bodyHtml: `<p><strong>ההחלטה</strong></p>
-<p><br></p>
-<p><strong>מה הבעיה / השאלה</strong></p>
-<p><br></p>
-<p><strong>אפשרות א׳ — יתרונות</strong></p>
-<p><br></p>
-<p><strong>אפשרות א׳ — חסרונות</strong></p>
-<p><br></p>
-<p><strong>אפשרות ב׳ — יתרונות</strong></p>
-<p><br></p>
-<p><strong>אפשרות ב׳ — חסרונות</strong></p>
-<p><br></p>
-<p><strong>מה חשוב לי הכי הרבה כאן</strong></p>
-<p><br></p>
-<p><strong>צעד קטן הבא (ניסוי)</strong></p>
-<p><br></p>`,
+    bodyHtml: `<p dir="rtl"><strong>ההחלטה</strong></p>
+${bulletInvite}
+<p dir="rtl"><strong>מה הבעיה / השאלה</strong></p>
+${bulletInvite}${bulletInvite}
+<p dir="rtl"><strong>אפשרות א׳ — יתרונות</strong></p>
+${bulletInvite}${bulletInvite}
+<p dir="rtl"><strong>אפשרות א׳ — חסרונות</strong></p>
+${bulletInvite}${bulletInvite}
+<p dir="rtl"><strong>אפשרות ב׳ — יתרונות</strong></p>
+${bulletInvite}${bulletInvite}
+<p dir="rtl"><strong>אפשרות ב׳ — חסרונות</strong></p>
+${bulletInvite}${bulletInvite}
+<p dir="rtl"><strong>מה חשוב לי הכי הרבה כאן</strong></p>
+${bulletInvite}${bulletInvite}
+<p dir="rtl"><strong>צעד קטן הבא (ניסוי)</strong></p>
+${bulletInvite}`,
   },
   {
     id: 'eisenhower-matrix',
     title: 'חשוב ודחוף — ארבעה רבעים',
     emoji: '◻️',
     description: 'מטריצת אייזנהאואר — ארבעה רבעים בטבלה.',
-    bodyHtml: `<p><strong>סדר עדיפויות (חשוב / דחוף)</strong></p>
-<p><br></p>
+    bodyHtml: `<p dir="rtl"><strong>סדר עדיפויות (חשוב / דחוף)</strong></p>
+<p dir="rtl" style="font-size:0.9em;color:#5c6b8a;margin:0.4em 0;">בכל רבע: נקודות עם • לפי הצורך.</p>
 <table style="${tableStyle}" dir="rtl"><tbody>
 <tr>
-<td style="${cellStyle}"><strong>דחוף וחשוב</strong><br><br></td>
-<td style="${cellStyle}"><strong>לא דחוף וחשוב</strong><br><br></td>
+<td style="${cellStyle}"><strong>דחוף וחשוב</strong><br/>${bulletInvite}${bulletInvite}</td>
+<td style="${cellStyle}"><strong>לא דחוף וחשוב</strong><br/>${bulletInvite}${bulletInvite}</td>
 </tr>
 <tr>
-<td style="${cellStyle}"><strong>דחוף ולא חשוב</strong><br><br></td>
-<td style="${cellStyle}"><strong>לא דחוף ולא חשוב</strong><br><br></td>
+<td style="${cellStyle}"><strong>דחוף ולא חשוב</strong><br/>${bulletInvite}${bulletInvite}</td>
+<td style="${cellStyle}"><strong>לא דחוף ולא חשוב</strong><br/>${bulletInvite}${bulletInvite}</td>
 </tr>
 </tbody></table>
-<p><br></p>
-<p><strong>הערה למחר</strong></p>
-<p><br></p>`,
+<p dir="rtl"><strong>הערה למחר</strong></p>
+${bulletInvite}${bulletInvite}`,
   },
 ]
 
 export function getPageTemplateById(id: string): PageTemplateDef | undefined {
   return PAGE_TEMPLATES.find((t) => t.id === id)
+}
+
+export function isChecklistTemplateId(id: string | null | undefined): boolean {
+  if (!id) return false
+  return getPageTemplateById(id)?.kind === 'checklist'
 }
 
 export function toLocalDateKey(d: Date): string {
