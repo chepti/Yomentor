@@ -12,9 +12,6 @@ import {
   getDoc,
   updateDoc,
   deleteDoc,
-  query,
-  where,
-  getDocs,
   deleteField,
 } from 'firebase/firestore'
 import { setHasSavedOnce } from '@/hooks/useInstallPrompt'
@@ -67,22 +64,15 @@ export function Write() {
           setImageUrl(d.imageUrl || null)
         }
       } else {
-        const start = new Date(dateParam)
-        start.setHours(0, 0, 0, 0)
-        const end = new Date(dateParam)
-        end.setHours(23, 59, 59, 999)
-        const q = query(
-          collection(db, 'users', user.uid, 'entries'),
-          where('date', '>=', start),
-          where('date', '<=', end)
-        )
-        const snap = await getDocs(q)
-        if (!snap.empty) {
-          const entryDoc = snap.docs[0]
-          setExistingId(entryDoc.id)
-          setText(entryDoc.data().text || '')
-          setImageUrl(entryDoc.data().imageUrl || null)
-        }
+        // תאריך בלבד (למשל "הוספת פוסט ליום זה") — פוסט חדש, לא טעינת פוסט קיים לפי יום
+        setExistingId(null)
+        setText('')
+        setImageUrl(null)
+        setPreviewUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev)
+          return null
+        })
+        pendingImageRef.current = null
       }
     }
     loadEntry()
