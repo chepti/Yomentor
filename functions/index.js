@@ -82,7 +82,65 @@ function shouldSendToday(workDays, density, dayOfWeek) {
   return false
 }
 
-/** התראה יומית לכתיבה + התראה כשיש סט פעיל */
+function toReminderSlot(timeStr) {
+  const t = (timeStr || '07:30').slice(0, 5)
+  const [h, m] = t.split(':').map(Number)
+  return `${String(h).padStart(2, '0')}:${String(Math.floor((m || 0) / 15) * 15).padStart(2, '0')}`
+}
+
+function tsToDate(v) {
+  if (!v) return null
+  if (typeof v.toDate === 'function') return v.toDate()
+  if (v instanceof Date) return v
+  return null
+}
+
+function dayStartD(d) {
+  const x = new Date(d)
+  x.setHours(0, 0, 0, 0)
+  return x
+}
+
+function dayEndD(d) {
+  const x = new Date(d)
+  x.setHours(23, 59, 59, 999)
+  return x
+}
+
+function scheduleCadenceOk(cadence, dayOfWeek, workDays) {
+  const c = cadence || 'every_day'
+  if (c === 'every_day') return true
+  if (c === 'weekdays_only') return dayOfWeek >= 0 && dayOfWeek <= 4
+  if (c === 'work_days') return Array.isArray(workDays) && workDays.includes(dayOfWeek)
+  return true
+}
+
+function getIsraelDateKey() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' })
+}
+
+async function findTemplateScheduleMatch(uid, currentSlot, dayOfWeek, profile, now) {
+  const schedSnap = await db.collection('users').doc(uid).collection('templateSchedules').get()
+  const workDays = profile?.workDays ?? [0, 1, 2, 3, 4]
+  for (const doc of schedSnap.docs) {
+    const sd = doc.data()
+    const start = tsToDate(sd.startDate)
+    const end = tsToDate(sd.endDate)
+    if (!start || !end) continue
+    if (now < dayStartD(start) || now > dayEndD(end)) continue
+    const t = sd.notificationTime || profile?.reminderTime || '07:30'
+    const slot = toReminderSlot(t)
+    if (slot !== currentSlot) continue
+    if (!scheduleCadenceOk(sd.notificationCadence, dayOfWeek, workDays)) continue
+    return {
+      templateId: sd.templateId,
+      templateTitle: sd.templateTitle || 'בניית הרגלים',
+    }
+  }
+  return null
+}
+
+/** התראה יומית לכתיבה + התראה כשיש סט פעיל + התראה לבניית הרגלים */
 exports.dailyWritingReminder = onSchedule(
   { schedule: '0,15,30,45 * * * *', timeZone: 'Asia/Jerusalem' },
   async () => {
@@ -97,6 +155,8 @@ exports.dailyWritingReminder = onSchedule(
     const hNow = new HDate(new Date())
     const monthKey = `${hNow.getFullYear()}-${String(hNow.getMonth()).padStart(2, '0')}`
 
+    const now = new Date()
+
     for (const userDoc of usersSnap.docs) {
       const uid = userDoc.id
       const data = userDoc.data()
@@ -105,13 +165,18 @@ exports.dailyWritingReminder = onSchedule(
       if (!token) continue
 
       const reminderTime = profile?.reminderTime || '07:30'
-      const [rh, rm] = reminderTime.slice(0, 5).split(':').map(Number)
-      const reminderSlot = `${String(rh).padStart(2, '0')}:${String(Math.floor((rm || 0) / 15) * 15).padStart(2, '0')}`
-      if (reminderSlot !== currentSlot) continue
+      const reminderSlot = toReminderSlot(reminderTime)
+
+      const templateMatch = await findTemplateScheduleMatch(uid, currentSlot, dayOfWeek, profile, now)
+      const globalSlotMatches = reminderSlot === currentSlot
+
+      if (!globalSlotMatches && !templateMatch) continue
 
       const workDays = profile?.workDays ?? [0, 1, 2, 3, 4]
       const density = profile?.reminderDensity || 'medium'
-      if (!shouldSendToday(workDays, density, dayOfWeek)) continue
+      const genericDayOk = shouldSendToday(workDays, density, dayOfWeek)
+
+      if (globalSlotMatches && !genericDayOk && !templateMatch) continue
 
       let title = 'יומנטור – כתבי לעצמך'
       let body = 'רגע שקט ליומן – מה עובר עלייך היום?'
@@ -161,6 +226,8 @@ exports.dailyWritingReminder = onSchedule(
         }
       }
 
+      let writeUrl = `${baseUrl}/write`
+
       if (activeSetData) {
         title = `יומנטור – ${activeSetData.title || 'שאלה מחכה לך'}`
         body = 'יש לך שאלה לכתיבה'
@@ -169,9 +236,20 @@ exports.dailyWritingReminder = onSchedule(
         if (activeSetData.coverImageUrl && activeSetData.coverImageUrl.startsWith('http')) {
           imageUrl = activeSetData.coverImageUrl
         }
+      } else if (templateMatch) {
+        title = `יומנטור – ${templateMatch.templateTitle}`
+        body = 'טיוטה מחכה לך לפי התבנית'
+        type = 'template_habit'
+        imageUrl = `${baseUrl}/logo-pisga.png`
+        const dk = getIsraelDateKey()
+        const tid = encodeURIComponent(templateMatch.templateId)
+        writeUrl = `${baseUrl}/write?date=${dk}&templateId=${tid}`
+      } else if (globalSlotMatches && genericDayOk) {
+        /* title/body/type כבר ברירת מחדל — daily */
+      } else {
+        continue
       }
 
-      const writeUrl = `${baseUrl}/write`
       try {
         await admin.messaging().send({
           notification: { title, body, image: imageUrl },

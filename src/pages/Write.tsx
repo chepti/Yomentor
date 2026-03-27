@@ -24,6 +24,7 @@ import { getMergedTemplateBody, getMergedNotesForChecklist } from '@/lib/mergeTe
 import { getPageTemplateById, isChecklistTemplateId, toLocalDateKey } from '@/lib/pageTemplates'
 import { serializeChecklistDocument, parseChecklistDocument } from '@/lib/checklistTemplateHtml'
 import { usePageTemplatePreferences } from '@/hooks/usePageTemplatePreferences'
+import type { TemplateScheduleNotificationCadence } from '@/types'
 
 const PROMPT_TEMPLATES = [
   'מה שימח אותי היום?',
@@ -36,7 +37,7 @@ const PROMPT_TEMPLATES = [
 export function Write() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const entryIdParam = searchParams.get('entryId')
   const draftIdParam = searchParams.get('draftId')
   const templateIdParam = searchParams.get('templateId')
@@ -61,6 +62,13 @@ export function Write() {
   const [scheduleDays, setScheduleDays] = useState(14)
   const [showScheduleModal, setShowScheduleModal] = useState(false)
   const [modalDays, setModalDays] = useState(14)
+  const [modalNotificationTime, setModalNotificationTime] = useState('07:30')
+  const [modalCadence, setModalCadence] =
+    useState<TemplateScheduleNotificationCadence>('every_day')
+
+  const [scheduleNotificationTime, setScheduleNotificationTime] = useState('07:30')
+  const [scheduleNotificationCadence, setScheduleNotificationCadence] =
+    useState<TemplateScheduleNotificationCadence>('every_day')
 
   const { saveCustomBody, saving: savingPreference } = usePageTemplatePreferences(user?.uid)
 
@@ -317,8 +325,11 @@ export function Write() {
         end.setHours(23, 59, 59, 999)
         const schedRef = await addDoc(collection(db, 'users', user.uid, 'templateSchedules'), {
           templateId: templateIdParam,
+          templateTitle: getPageTemplateById(templateIdParam)?.title,
           startDate: start,
           endDate: end,
+          notificationTime: scheduleNotificationTime || profile?.reminderTime || '07:30',
+          notificationCadence: scheduleNotificationCadence || 'every_day',
           createdAt: serverTimestamp(),
         })
         scheduleId = schedRef.id
@@ -458,11 +469,15 @@ export function Write() {
 
   const openScheduleModal = () => {
     setModalDays(scheduleDays)
+    setModalNotificationTime(scheduleNotificationTime || profile?.reminderTime || '07:30')
+    setModalCadence(scheduleNotificationCadence)
     setShowScheduleModal(true)
   }
 
   const confirmScheduleInModal = () => {
     setScheduleDays(Math.max(1, Math.min(60, modalDays)))
+    setScheduleNotificationTime(modalNotificationTime.slice(0, 5) || '07:30')
+    setScheduleNotificationCadence(modalCadence)
     setScheduleEnabled(true)
     setShowScheduleModal(false)
   }
@@ -564,7 +579,12 @@ export function Write() {
           </button>
           {scheduleEnabled && (
             <p className="text-xs text-muted text-center mt-2 leading-relaxed">
-              מוגדר: {scheduleDays} ימים — בכל יום תיווצר טיוטה (לא מופיעה ביומן עד שתפרסמי)
+              מוגדר: {scheduleDays} ימים · התראה ב־{scheduleNotificationTime} ·{' '}
+              {scheduleNotificationCadence === 'every_day'
+                ? 'כל יום'
+                : scheduleNotificationCadence === 'work_days'
+                  ? 'ימי העבודה בהגדרות'
+                  : 'ימי חול (א׳–ה׳)'}
             </p>
           )}
         </div>
@@ -598,6 +618,43 @@ export function Write() {
               onChange={(e) => setModalDays(parseInt(e.target.value, 10) || 14)}
               className="w-full rounded-xl border border-muted/40 px-3 py-2 bg-bg mb-4"
             />
+            <label className="block text-sm font-medium mb-2">שעת התראה יומית</label>
+            <input
+              type="time"
+              value={modalNotificationTime.slice(0, 5)}
+              onChange={(e) => setModalNotificationTime(e.target.value)}
+              className="w-full rounded-xl border border-muted/40 px-3 py-2 bg-bg mb-4"
+            />
+            <p className="text-sm font-medium mb-2">מתי לשלוח התראה</p>
+            <div className="flex flex-col gap-2 mb-4 text-sm" role="radiogroup">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="cadence"
+                  checked={modalCadence === 'every_day'}
+                  onChange={() => setModalCadence('every_day')}
+                />
+                בכל יום (בתוך טווח הימים)
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="cadence"
+                  checked={modalCadence === 'work_days'}
+                  onChange={() => setModalCadence('work_days')}
+                />
+                רק בימי העבודה שסימנת בהגדרות
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="cadence"
+                  checked={modalCadence === 'weekdays_only'}
+                  onChange={() => setModalCadence('weekdays_only')}
+                />
+                רק ימי חול (ראשון–חמישי)
+              </label>
+            </div>
             <div className="flex flex-col gap-2">
               <button
                 type="button"
@@ -610,6 +667,8 @@ export function Write() {
                 type="button"
                 onClick={() => {
                   setScheduleEnabled(false)
+                  setScheduleNotificationTime(profile?.reminderTime || '07:30')
+                  setScheduleNotificationCadence('every_day')
                   cancelScheduleInModal()
                 }}
                 className="w-full py-2 text-muted text-sm"

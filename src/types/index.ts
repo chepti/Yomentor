@@ -52,13 +52,22 @@ export interface PageDraft {
   updatedAt?: Timestamp
 }
 
+/** מתי לשלוח התראה לפי לוח זמנים של תבנית */
+export type TemplateScheduleNotificationCadence = 'every_day' | 'work_days' | 'weekdays_only'
+
 /** חלון זמן ליצירת טיוטה יומית מתבנית */
 export interface TemplateSchedule {
   id?: string
   templateId: string
+  /** כותרת לתצוגה בהתראה */
+  templateTitle?: string
   startDate: Timestamp
   endDate: Timestamp
   createdAt?: Timestamp
+  /** שעת תזכורת (HH:mm), ברירת מחדל משעת התזכורת בהגדרות */
+  notificationTime?: string
+  /** כל יום / רק ימי עבודה מהפרופיל / א׳–ה׳ */
+  notificationCadence?: TemplateScheduleNotificationCadence
 }
 
 /** שאלה בודדת בסט – עם תמונה אופציונלית */

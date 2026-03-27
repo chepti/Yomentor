@@ -23,10 +23,15 @@ export function useReminders() {
   useEffect(() => {
     const unsub = onForegroundMessage((payload) => {
       if (payload && typeof payload === 'object' && 'data' in payload) {
-        const data = (payload as { data?: { type?: string } }).data
-        if (data?.type === 'monthly_goals') {
+        const data = (payload as { data?: { type?: string; url?: string } }).data
+        if (!data?.type) return
+        if (data.type === 'monthly_goals') {
           navigate('/goals')
-        } else if (data?.type === 'daily' || data?.type === 'set_question' || data?.type === 'inspiration') {
+          return
+        }
+        if (typeof data.url === 'string' && data.url.length > 0) {
+          navigate(data.url)
+        } else {
           navigate('/write')
         }
       }
