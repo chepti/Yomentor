@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Settings as SettingsIcon, Download, ChevronLeft, Bell } from 'lucide-react'
+import { Settings as SettingsIcon, Download, ChevronLeft, Bell, Users } from 'lucide-react'
 import { useAuth, ensureProfile } from '@/hooks/useAuth'
-import { TeamAccessSection } from '@/components/TeamAccessSection'
+import { TeamAccessModal } from '@/components/TeamAccessModal'
 import { signOut, sendTestNotification, requestNotificationPermission, getFCMToken, saveFCMToken } from '@/lib/firebase'
 import { Card } from '@/components/Card'
 import { Pill } from '@/components/Pill'
@@ -28,6 +28,7 @@ export function Settings() {
   const [testNotifLoading, setTestNotifLoading] = useState(false)
   const [testNotifMsg, setTestNotifMsg] = useState<string | null>(null)
   const [refreshTokenLoading, setRefreshTokenLoading] = useState(false)
+  const [teamModalOpen, setTeamModalOpen] = useState(false)
 
   useEffect(() => {
     if (profile) {
@@ -244,7 +245,21 @@ export function Settings() {
         </button>
       </section>
 
-      {isFullAdmin && <TeamAccessSection />}
+      {isFullAdmin && (
+        <>
+          <section className="mb-6">
+            <button
+              type="button"
+              onClick={() => setTeamModalOpen(true)}
+              className="w-full bg-card rounded-card shadow-soft p-4 flex items-center justify-center gap-2 font-medium"
+            >
+              <Users size={20} strokeWidth={1.5} className="text-icon-primary" />
+              ניהול עורכים
+            </button>
+          </section>
+          <TeamAccessModal open={teamModalOpen} onClose={() => setTeamModalOpen(false)} />
+        </>
+      )}
 
       {canManageSets && (
         <section className="mb-6">
