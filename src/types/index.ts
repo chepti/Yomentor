@@ -4,6 +4,8 @@ import type { Timestamp } from 'firebase/firestore'
 export interface AppAccessConfig {
   adminUids: string[]
   editorUids: string[]
+  /** שמות תצוגה (UID → שם); לא משמש לאימות גישה */
+  displayNames?: Record<string, string>
 }
 
 export interface UserProfile {

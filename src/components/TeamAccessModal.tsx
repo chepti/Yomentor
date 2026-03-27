@@ -25,18 +25,32 @@ type Props = {
 }
 
 export function TeamAccessModal({ open, onClose }: Props) {
-  const { user, isFullAdmin, adminUids, editorUids, refreshAccessConfig, applyAccessSnapshot } =
-    useAuth()
+  const {
+    user,
+    isFullAdmin,
+    adminUids,
+    editorUids,
+    displayNames,
+    refreshAccessConfig,
+    applyAccessSnapshot,
+  } = useAuth()
   const [input, setInput] = useState('')
+  const [nameInput, setNameInput] = useState('')
   const [role, setRole] = useState<'admin' | 'editor'>('editor')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
+  const [nameDraft, setNameDraft] = useState<Record<string, string>>({})
 
   useEffect(() => {
     if (!open || !isFullAdmin) return
     setMsg(null)
     void refreshAccessConfig()
   }, [open, isFullAdmin, refreshAccessConfig])
+
+  useEffect(() => {
+    if (!open) return
+    setNameDraft({ ...displayNames })
+  }, [open, displayNames])
 
   useEffect(() => {
     if (!open) return
@@ -49,13 +63,49 @@ export function TeamAccessModal({ open, onClose }: Props) {
 
   if (!isFullAdmin || !user) return null
 
-  const persist = async (nextAdmins: string[], nextEditors: string[]) => {
-    const saved = await updateTeamAccess(nextAdmins, nextEditors)
+  const persist = async (
+    nextAdmins: string[],
+    nextEditors: string[],
+    namesPatch?: Record<string, string | undefined>
+  ) => {
+    const allowed = new Set([...nextAdmins, ...nextEditors])
+    let nextNames: Record<string, string> = { ...displayNames }
+    if (namesPatch) {
+      for (const [k, v] of Object.entries(namesPatch)) {
+        if (v === undefined || v.trim() === '') delete nextNames[k]
+        else nextNames[k] = v.trim()
+      }
+    }
+    nextNames = Object.fromEntries(
+      Object.entries(nextNames).filter(([k]) => allowed.has(k))
+    ) as Record<string, string>
+    const saved = await updateTeamAccess(nextAdmins, nextEditors, nextNames)
     applyAccessSnapshot({
       adminUids: Array.isArray(saved.adminUids) ? saved.adminUids : nextAdmins,
       editorUids: Array.isArray(saved.editorUids) ? saved.editorUids : nextEditors,
+      displayNames: saved.displayNames ?? nextNames,
     })
     await refreshAccessConfig()
+  }
+
+  const rowTitle = (uid: string) => {
+    const d = (nameDraft[uid] ?? displayNames[uid] ?? '').trim()
+    return d || 'ללא שם'
+  }
+
+  const saveNameForUid = async (uid: string) => {
+    setMsg(null)
+    setBusy(true)
+    try {
+      const v = (nameDraft[uid] ?? '').trim()
+      await persist(adminUids, editorUids, { [uid]: v || undefined })
+      setMsg('שם עודכן')
+    } catch (e) {
+      const err = e as { code?: string; message?: string }
+      setMsg(err.message || 'שגיאה בשמירת שם')
+    } finally {
+      setBusy(false)
+    }
   }
 
   const handleAdd = async () => {
@@ -73,8 +123,12 @@ export function TeamAccessModal({ open, onClose }: Props) {
       editors = editors.filter((u) => u !== uid)
       if (role === 'admin') admins.push(uid)
       else editors.push(uid)
-      await persist(admins, editors)
+      const patch: Record<string, string | undefined> = {}
+      const nm = nameInput.trim()
+      if (nm) patch[uid] = nm
+      await persist(admins, editors, patch)
       setInput('')
+      setNameInput('')
       setMsg('נשמר')
     } catch (e) {
       const err = e as { code?: string; message?: string }
@@ -100,12 +154,14 @@ export function TeamAccessModal({ open, onClose }: Props) {
       if (from === 'admin') {
         await persist(
           adminUids.filter((u) => u !== uid),
-          editorUids
+          editorUids,
+          { [uid]: undefined }
         )
       } else {
         await persist(
           adminUids,
-          editorUids.filter((u) => u !== uid)
+          editorUids.filter((u) => u !== uid),
+          { [uid]: undefined }
         )
       }
     } catch (e) {
@@ -168,6 +224,14 @@ export function TeamAccessModal({ open, onClose }: Props) {
               className="w-full p-3 rounded-lg bg-bg border border-gray-100"
               disabled={busy}
             />
+            <input
+              type="text"
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              placeholder="שם לתצוגה (מומלץ)"
+              className="w-full p-3 rounded-lg bg-bg border border-gray-100"
+              disabled={busy}
+            />
             <div className="flex gap-2 flex-wrap items-center">
               <select
                 value={role}
@@ -193,54 +257,104 @@ export function TeamAccessModal({ open, onClose }: Props) {
         </Card>
 
         <Card className="mb-2">
-          <span className="text-sm font-medium block mb-2">אדמינים מלאים (UID)</span>
-          <ul className="space-y-2">
+          <span className="text-sm font-medium block mb-2">אדמינים מלאים</span>
+          <ul className="space-y-3">
             {adminUids.length === 0 && (
               <li className="text-sm text-muted">אין ברשימה – ייתכן שיש גישה רק דרך claim אדמין בפרויקט</li>
             )}
             {adminUids.map((uid) => (
               <li
                 key={uid}
-                className="flex justify-between items-center gap-2 text-sm py-1 border-b border-gray-100 last:border-0"
+                className="text-sm py-2 border-b border-gray-100 last:border-0"
               >
-                <code className="text-xs break-all" dir="ltr">
-                  {uid}
-                </code>
-                <button
-                  type="button"
-                  onClick={() => removeUid(uid, 'admin')}
-                  className="shrink-0 text-muted hover:text-red-600"
-                  aria-label={`הסר ${shortUid(uid)}`}
-                >
-                  <X size={18} />
-                </button>
+                <div className="flex justify-between items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium">{rowTitle(uid)}</p>
+                    <p className="text-xs text-muted mt-0.5" dir="ltr">
+                      מזהה: {shortUid(uid)}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeUid(uid, 'admin')}
+                    className="shrink-0 text-muted hover:text-red-600 p-1"
+                    aria-label={`הסר ${shortUid(uid)}`}
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+                <div className="flex gap-2 mt-2 flex-wrap">
+                  <input
+                    type="text"
+                    value={nameDraft[uid] ?? ''}
+                    onChange={(e) =>
+                      setNameDraft((d) => ({ ...d, [uid]: e.target.value }))
+                    }
+                    placeholder="שם לתצוגה"
+                    className="flex-1 min-w-[8rem] p-2 rounded-lg bg-bg border border-gray-100 text-sm"
+                    disabled={busy}
+                  />
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => saveNameForUid(uid)}
+                    className="px-3 py-2 text-sm rounded-lg bg-primary/15 text-primary"
+                  >
+                    שמירת שם
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
         </Card>
 
         <Card>
-          <span className="text-sm font-medium block mb-2">עורכים – סטים בלבד (UID)</span>
-          <ul className="space-y-2">
+          <span className="text-sm font-medium block mb-2">עורכים – סטים בלבד</span>
+          <ul className="space-y-3">
             {editorUids.length === 0 && (
               <li className="text-sm text-muted">אין עורכים ברשימה</li>
             )}
             {editorUids.map((uid) => (
               <li
                 key={uid}
-                className="flex justify-between items-center gap-2 text-sm py-1 border-b border-gray-100 last:border-0"
+                className="text-sm py-2 border-b border-gray-100 last:border-0"
               >
-                <code className="text-xs break-all" dir="ltr">
-                  {uid}
-                </code>
-                <button
-                  type="button"
-                  onClick={() => removeUid(uid, 'editor')}
-                  className="shrink-0 text-muted hover:text-red-600"
-                  aria-label={`הסר ${shortUid(uid)}`}
-                >
-                  <X size={18} />
-                </button>
+                <div className="flex justify-between items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium">{rowTitle(uid)}</p>
+                    <p className="text-xs text-muted mt-0.5" dir="ltr">
+                      מזהה: {shortUid(uid)}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeUid(uid, 'editor')}
+                    className="shrink-0 text-muted hover:text-red-600 p-1"
+                    aria-label={`הסר ${shortUid(uid)}`}
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+                <div className="flex gap-2 mt-2 flex-wrap">
+                  <input
+                    type="text"
+                    value={nameDraft[uid] ?? ''}
+                    onChange={(e) =>
+                      setNameDraft((d) => ({ ...d, [uid]: e.target.value }))
+                    }
+                    placeholder="שם לתצוגה"
+                    className="flex-1 min-w-[8rem] p-2 rounded-lg bg-bg border border-gray-100 text-sm"
+                    disabled={busy}
+                  />
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => saveNameForUid(uid)}
+                    className="px-3 py-2 text-sm rounded-lg bg-primary/15 text-primary"
+                  >
+                    שמירת שם
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

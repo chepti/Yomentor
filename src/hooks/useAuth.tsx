@@ -38,6 +38,8 @@ interface AuthContextValue {
   staffLoading: boolean
   adminUids: string[]
   editorUids: string[]
+  /** שמות תצוגה לפי UID (מ-config/access) */
+  displayNames: Record<string, string>
   /** רענון מ-Firestore אחרי עדכון צוות בשרת (כשה-snapshot מתעכב) */
   refreshAccessConfig: () => Promise<void>
   /** עדכון מקומי מהתשובה של updateTeamAccess (מומלץ אחרי שמירה) */
@@ -47,11 +49,28 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-const emptyAccess: AppAccessConfig = { adminUids: [], editorUids: [] }
+const emptyDisplayNames: Record<string, string> = {}
+const emptyAccess: AppAccessConfig = {
+  adminUids: [],
+  editorUids: [],
+  displayNames: emptyDisplayNames,
+}
 
 function normalizeUidList(v: unknown): string[] {
   if (!Array.isArray(v)) return []
   return v.filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
+}
+
+function normalizeDisplayNames(v: unknown): Record<string, string> {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return {}
+  const out: Record<string, string> = {}
+  for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+    if (typeof k !== 'string' || !k.trim()) continue
+    if (typeof val !== 'string') continue
+    const t = val.trim()
+    if (t) out[k.trim()] = t
+  }
+  return out
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -111,6 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setAccess({
             adminUids: normalizeUidList(d.adminUids),
             editorUids: normalizeUidList(d.editorUids),
+            displayNames: normalizeDisplayNames(d.displayNames),
           })
         } else {
           setAccess(emptyAccess)
@@ -130,6 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAccess({
       adminUids: normalizeUidList(data.adminUids),
       editorUids: normalizeUidList(data.editorUids),
+      displayNames: normalizeDisplayNames(data.displayNames),
     })
     setAccessLoaded(true)
   }, [])
@@ -144,6 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         applyAccessSnapshot({
           adminUids: normalizeUidList(d.adminUids),
           editorUids: normalizeUidList(d.editorUids),
+          displayNames: normalizeDisplayNames(d.displayNames),
         })
       } else {
         setAccess(emptyAccess)
@@ -158,6 +180,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           applyAccessSnapshot({
             adminUids: normalizeUidList(d.adminUids),
             editorUids: normalizeUidList(d.editorUids),
+            displayNames: normalizeDisplayNames(d.displayNames),
           })
         } else {
           setAccess(emptyAccess)
@@ -177,7 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         staffLoading: false,
       }
     }
-    const a = access ?? emptyAccess
+    const a: AppAccessConfig = access ?? emptyAccess
     const inAdmins = a.adminUids.includes(user.uid)
     const inEditors = a.editorUids.includes(user.uid)
     const full = claimAdmin || (accessLoaded && inAdmins)
@@ -221,6 +244,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const adminUids = access?.adminUids ?? []
   const editorUids = access?.editorUids ?? []
+  const displayNames = access?.displayNames ?? emptyDisplayNames
 
   return (
     <AuthContext.Provider
@@ -234,6 +258,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         staffLoading,
         adminUids,
         editorUids,
+        displayNames,
         refreshAccessConfig,
         applyAccessSnapshot,
         signInWithGoogle: handleSignInWithGoogle,

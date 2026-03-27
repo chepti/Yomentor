@@ -252,8 +252,31 @@ exports.updateTeamAccess = onCall(async (request) => {
     ),
   ]
   editorUids = editorUids.filter((e) => !adminUids.includes(e))
-  await db.doc('config/access').set({ adminUids, editorUids }, { merge: true })
-  return { ok: true, adminUids, editorUids }
+  const allowed = new Set([...adminUids, ...editorUids])
+  let displayNames = {}
+  const rawNames = data.displayNames
+  if (rawNames !== undefined && rawNames !== null) {
+    if (typeof rawNames === 'object' && !Array.isArray(rawNames)) {
+      for (const [k, v] of Object.entries(rawNames)) {
+        if (typeof k !== 'string' || !k.trim()) continue
+        const uidKey = k.trim()
+        if (!allowed.has(uidKey)) continue
+        if (typeof v !== 'string') continue
+        const label = v.trim()
+        if (label) displayNames[uidKey] = label
+      }
+    }
+  } else {
+    const prevSnap = await db.doc('config/access').get()
+    const prev = prevSnap.exists ? prevSnap.data().displayNames || {} : {}
+    if (prev && typeof prev === 'object') {
+      for (const uid of allowed) {
+        if (typeof prev[uid] === 'string' && prev[uid].trim()) displayNames[uid] = prev[uid].trim()
+      }
+    }
+  }
+  await db.doc('config/access').set({ adminUids, editorUids, displayNames }, { merge: true })
+  return { ok: true, adminUids, editorUids, displayNames }
 })
 
 /** מציאת UID לפי מייל – רק לאדמין מלא (לניהול צוות בהגדרות) */
