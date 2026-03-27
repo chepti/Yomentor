@@ -24,6 +24,35 @@ function getIsraelNow() {
   return { date: new Date(y, m - 1, d), hour, minute, dayOfWeek: new Date(y, m - 1, d).getDay() }
 }
 
+function parseStartDate(startedAt) {
+  if (!startedAt) return null
+  if (typeof startedAt.toDate === 'function') return startedAt.toDate()
+  if (startedAt instanceof Date) return startedAt
+  return null
+}
+
+/** חלון שאלה יומית נגמר אחרי N ימים מתאריך ההתחלה (יום 0 … N-1) */
+function isSetDailyPeriodEnded(startedAt, totalQuestions) {
+  if (!totalQuestions) return true
+  const start = parseStartDate(startedAt)
+  if (!start) return true
+  const startDay = new Date(start)
+  startDay.setHours(0, 0, 0, 0)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const diffDays = Math.floor((today.getTime() - startDay.getTime()) / (24 * 60 * 60 * 1000))
+  return diffDays >= totalQuestions
+}
+
+/** יום ראשון של חודש עברי לפי מפתח (תואם ללקוח) */
+function getHebrewMonthStartDate(HDate, monthKey) {
+  const [y, m] = monthKey.split('-').map(Number)
+  const hFirst = new HDate(1, m, y)
+  const d = hFirst.greg()
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
 /** האם לשלוח התראה היום לפי workDays ו-density */
 function shouldSendToday(workDays, density, dayOfWeek) {
   if (density === 'high') return true
@@ -69,28 +98,59 @@ exports.dailyWritingReminder = onSchedule(
       const density = profile?.reminderDensity || 'medium'
       if (!shouldSendToday(workDays, density, dayOfWeek)) continue
 
-      let title = 'יומנטור – זמן לכתיבה'
-      let body = 'הקדישי רגע ליומן האישי'
+      let title = 'יומנטור – כתבי לעצמך'
+      let body = 'רגע שקט ליומן – מה עובר עלייך היום?'
       let type = 'daily'
       let imageUrl = `${baseUrl}/logo-pisga.png`
 
       const activeSet = data?.activeSet
       let activeSetData = null
+
       if (activeSet?.setId) {
-        activeSetData = setsMap[activeSet.setId]
+        const sd = setsMap[activeSet.setId]
+        if (sd) {
+          const n = (sd.questions && sd.questions.length) || 0
+          if (!isSetDailyPeriodEnded(activeSet.startedAt, n)) {
+            activeSetData = sd
+          }
+        }
       }
-      if (!activeSetData) {
+
+      let allowMonthlyFallback = true
+      if (activeSet?.setId && !activeSetData) {
+        const other = setsMap[activeSet.setId]
+        const n = other && other.questions ? other.questions.length : 0
+        if (!other || isSetDailyPeriodEnded(activeSet.startedAt, n)) {
+          allowMonthlyFallback = false
+        }
+      }
+
+      if (!activeSetData && allowMonthlyFallback) {
         const optOuts = data?.setOptOuts || {}
-        const monthlySet = setsSnap.docs.find(
-          (d) => d.data().type === 'monthly' && d.data().monthKey === monthKey && !optOuts[d.id]
+        const monthlyDoc = setsSnap.docs.find(
+          (d) => {
+            const dd = d.data()
+            return dd.type === 'monthly' && dd.monthKey === monthKey && !optOuts[d.id]
+          }
         )
-        if (monthlySet) activeSetData = { ...monthlySet.data(), id: monthlySet.id }
+        if (monthlyDoc) {
+          const sd = { ...monthlyDoc.data(), id: monthlyDoc.id }
+          const n = (sd.questions && sd.questions.length) || 0
+          let startForExpiry = getHebrewMonthStartDate(HDate, monthKey)
+          if (activeSet?.setId === monthlyDoc.id && activeSet.startedAt) {
+            startForExpiry = parseStartDate(activeSet.startedAt) || startForExpiry
+          }
+          if (!isSetDailyPeriodEnded(startForExpiry, n)) {
+            activeSetData = sd
+          }
+        }
       }
 
       if (activeSetData) {
         title = `יומנטור – ${activeSetData.title || 'שאלה מחכה לך'}`
-        body = `יש לך שאלה לכתיבה`
+        body = 'יש לך שאלה לכתיבה'
         type = 'set_question'
+        imageUrl = `${baseUrl}/logo-pisga.png`
         if (activeSetData.coverImageUrl && activeSetData.coverImageUrl.startsWith('http')) {
           imageUrl = activeSetData.coverImageUrl
         }

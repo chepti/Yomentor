@@ -10,6 +10,17 @@ export function getHebrewMonthKey(date: Date): string {
   return `${year}-${String(month).padStart(2, '0')}`
 }
 
+/** יום ראשון של חודש עברי לפי מפתח (למשל 5786-02) – לחישוב חלון שאלות יומי בסט חודשי */
+export function getHebrewMonthStartDate(monthKey: string): Date {
+  const [yearStr, monthStr] = monthKey.split('-')
+  const year = parseInt(yearStr, 10)
+  const month = parseInt(monthStr, 10)
+  const hFirst = new HDate(1, month, year)
+  const d = hFirst.greg()
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
 /** האם היום ראש חודש עברי – יום 1 (להתראות) */
 export function isRoshChodesh(date: Date): boolean {
   const h = new HDate(date)
