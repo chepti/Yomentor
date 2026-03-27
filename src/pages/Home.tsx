@@ -152,7 +152,23 @@ export function Home() {
         </Link>
       </div>
 
-      {activeSetData && todayQuestionText ? (
+      <Card className="mb-6 border-r-4 border-[#FFCB00]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#6896F0] to-[#4663AC] flex items-center justify-center text-white shadow-lg">
+            <PenLine size={24} strokeWidth={1.5} />
+          </div>
+          <h2 className="text-lg font-bold">מה עובר עלייך היום?</h2>
+          <Link
+            to="/write"
+            className="w-full bg-[#6896F0] text-white py-3 rounded-[50px] flex items-center justify-center gap-2 shadow-md hover:opacity-95 transition-opacity"
+          >
+            <Plus size={20} strokeWidth={2} />
+            כתיבה חדשה
+          </Link>
+        </div>
+      </Card>
+
+      {activeSetData && todayQuestionText && (
         <Link to={`/sets/${activeSetData.id}/write/${todayQuestionIndex}`}>
           <Card className="mb-6 overflow-hidden border-r-4 border-[#FF8000] hover:opacity-95 transition-opacity">
             <div className="flex gap-4">
@@ -182,38 +198,7 @@ export function Home() {
             </div>
           </Card>
         </Link>
-      ) : (
-        <Card className="mb-6 border-r-4 border-[#FFCB00]">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#6896F0] to-[#4663AC] flex items-center justify-center text-white shadow-lg">
-              <PenLine size={24} strokeWidth={1.5} />
-            </div>
-            <h2 className="text-lg font-bold">מה עובר עלייך היום?</h2>
-            <Link
-              to="/write"
-              className="w-full bg-[#6896F0] text-white py-3 rounded-[50px] flex items-center justify-center gap-2 shadow-md hover:opacity-95 transition-opacity"
-            >
-              <Plus size={20} strokeWidth={2} />
-              כתיבה חדשה
-            </Link>
-          </div>
-        </Card>
       )}
-
-      <Link to="/write" className="block mb-6">
-        <Card className="border-r-4 border-[#E22830] bg-gradient-to-l from-[#FF8A4C]/30 to-[#FFCB00]/25 shadow-lg hover:opacity-95 transition-opacity">
-          <div className="flex items-center gap-4">
-            <PenLine
-              size={32}
-              strokeWidth={2}
-              className="text-[#FF8000] flex-shrink-0"
-              aria-hidden
-            />
-            <p className="flex-1 min-w-0 text-lg font-bold text-[#2E499B]">מה הרגע שלך היום?</p>
-            <ChevronLeft size={22} className="text-[#4663AC] flex-shrink-0" strokeWidth={2} />
-          </div>
-        </Card>
-      </Link>
 
       <h3 className="text-lg font-bold mb-4 text-[#4663AC]">פוסטים אחרונים</h3>
       <div className="flex flex-col gap-4">
