@@ -212,42 +212,46 @@ export function Write() {
         )}
       </Card>
 
-      {existingId && (
-        <div className="flex gap-2 mb-4">
-          <button
-            type="button"
-            onClick={handleArchive}
-            className="flex-1 flex items-center justify-center gap-2 py-2 rounded-[50px] bg-card text-muted border border-muted/30"
-          >
-            <Archive size={18} strokeWidth={1.5} />
-            העברה לארכיון
-          </button>
-          <button
-            type="button"
-            onClick={handleDelete}
-            className="flex items-center justify-center gap-2 px-4 py-2 rounded-[50px] text-[#E22830] border border-[#E22830]/50 hover:bg-[#E22830]/10"
-          >
-            <Trash2 size={18} strokeWidth={1.5} />
-            מחיקה
-          </button>
-        </div>
-      )}
-
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex justify-between items-start gap-2 mb-4">
         <div className="flex gap-2">
-          <label className="w-10 h-10 rounded-full bg-card shadow-soft flex items-center justify-center cursor-pointer">
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleImagePick}
-              className="hidden"
-            />
-            <Camera size={20} strokeWidth={1.5} className="text-icon-primary" />
-          </label>
+          <div className="flex flex-col gap-2">
+            <label className="w-10 h-10 rounded-full bg-card shadow-soft flex items-center justify-center cursor-pointer shrink-0">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImagePick}
+                className="hidden"
+              />
+              <Camera size={20} strokeWidth={1.5} className="text-icon-primary" />
+            </label>
+            {existingId && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleArchive}
+                  className="w-10 h-10 rounded-full bg-card shadow-soft flex items-center justify-center text-muted border border-muted/25 hover:bg-muted/15"
+                  aria-label="העברה לארכיון"
+                  title="העברה לארכיון"
+                >
+                  <Archive size={20} strokeWidth={1.5} />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  className="w-10 h-10 rounded-full bg-card shadow-soft flex items-center justify-center text-[#E22830] border border-[#E22830]/25 hover:bg-[#E22830]/8"
+                  aria-label="מחיקה"
+                  title="מחיקה"
+                >
+                  <Trash2 size={20} strokeWidth={1.5} />
+                </button>
+              </>
+            )}
+          </div>
           <button
             type="button"
             onClick={() => setShowTemplates(!showTemplates)}
-            className="w-10 h-10 rounded-full bg-card shadow-soft flex items-center justify-center"
+            className="w-10 h-10 rounded-full bg-card shadow-soft flex items-center justify-center shrink-0 self-start"
+            aria-label="הצעות לכתיבה"
           >
             <Sparkles size={20} strokeWidth={1.5} className="text-icon-highlight" />
           </button>
@@ -256,7 +260,7 @@ export function Write() {
           type="button"
           onClick={handleSave}
           disabled={saving || uploadingImage}
-          className="bg-primary text-white px-6 py-2 rounded-[50px] disabled:opacity-60"
+          className="self-start bg-primary text-white px-6 py-2 rounded-[50px] disabled:opacity-60"
         >
           {saving ? 'שומר...' : uploadingImage ? 'מעלה תמונה...' : 'שמירה'}
         </button>
