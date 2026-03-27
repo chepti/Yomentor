@@ -135,18 +135,24 @@ export function SetQuestionWrite() {
     )
   }
 
+  const coverUrl = questionImage || setData.coverImageUrl
+
   return (
     <div className="min-h-screen flex flex-col relative">
-      {(questionImage || setData.coverImageUrl) && (
+      {coverUrl ? (
         <div
           className="absolute inset-0 bg-cover bg-center -z-10"
-          style={{ backgroundImage: `url(${questionImage || setData.coverImageUrl})` }}
+          style={{ backgroundImage: `url(${coverUrl})` }}
         >
-          <div className="absolute inset-0 bg-black/50" />
+          {/* שכבת הכהיה כפולה: למעלה כהה יותר לתאריך ולשאלה */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/55 to-black/40" />
         </div>
+      ) : (
+        /* רקע כהה כשאין תמונת סט – מונע אזור עליון בהיר */
+        <div className="absolute inset-0 -z-10 bg-gradient-to-b from-[#1a2d5c] via-[#2E499B] to-[#3d5a9e]" />
       )}
       <div className="relative flex flex-col min-h-screen z-0">
-        <header className="flex justify-between items-center p-4 text-white drop-shadow-lg">
+        <header className="flex justify-between items-center p-4 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
           <button
             type="button"
             onClick={() => navigate(-1)}
@@ -167,11 +173,12 @@ export function SetQuestionWrite() {
         </header>
 
         <div className="flex-1 flex flex-col px-4 pb-6">
-          <div className="text-white drop-shadow-lg mb-4">
-            <p className="text-sm opacity-90">
+          {/* רקע כהה לשאלה – קונטרסט טוב לקריאה */}
+          <div className="rounded-2xl bg-black/45 backdrop-blur-sm px-4 py-4 mb-4 text-white shadow-lg">
+            <p className="text-sm text-white/95">
               שאלה {qIndex + 1} מתוך {totalQuestions}
             </p>
-            <h1 className="text-xl font-bold mt-2 leading-relaxed">
+            <h1 className="text-xl font-bold mt-2 leading-relaxed text-white">
               {questionText}
             </h1>
           </div>

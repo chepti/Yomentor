@@ -31,6 +31,36 @@ export interface Entry {
   archived?: boolean
 }
 
+/** גרסה אישית לתבנית עמוד — `users/{uid}/pageTemplatePreferences/{templateId}` */
+export interface PageTemplatePreference {
+  templateId: string
+  customBodyHtml: string
+  updatedAt?: Timestamp
+}
+
+/** טיוטת פוסט — לא מוצגת ביומן עד פרסום */
+export interface PageDraft {
+  id?: string
+  text: string
+  /** מפתח יום מקומי YYYY-MM-DD */
+  dayKey: string
+  templateId?: string
+  scheduleId?: string
+  imageUrl?: string
+  status: 'draft'
+  createdAt?: Timestamp
+  updatedAt?: Timestamp
+}
+
+/** חלון זמן ליצירת טיוטה יומית מתבנית */
+export interface TemplateSchedule {
+  id?: string
+  templateId: string
+  startDate: Timestamp
+  endDate: Timestamp
+  createdAt?: Timestamp
+}
+
 /** שאלה בודדת בסט – עם תמונה אופציונלית */
 export interface SetQuestion {
   text: string

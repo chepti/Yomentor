@@ -1,18 +1,22 @@
 import { Link } from 'react-router-dom'
-import { Plus, ChevronLeft, User } from 'lucide-react'
+import { Plus, ChevronLeft, User, FileEdit } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useSets } from '@/hooks/useSets'
 import { useResolvedActiveSet } from '@/hooks/useResolvedActiveSet'
 import { useSetOptOuts } from '@/hooks/useSetOptOuts'
+import { useDrafts } from '@/hooks/useDrafts'
 import { Card } from '@/components/Card'
 import { getHebrewMonthKey } from '@/lib/hebrewDate'
+import { PAGE_TEMPLATES, toLocalDateKey } from '@/lib/pageTemplates'
 
 export function Sets() {
   const { user, canManageSets } = useAuth()
   const sets = useSets()
   const { activeSet, activeSetData } = useResolvedActiveSet(user?.uid)
   const optOuts = useSetOptOuts(user?.uid)
+  const { drafts } = useDrafts(user?.uid)
   const currentMonthKey = getHebrewMonthKey(new Date())
+  const todayKey = toLocalDateKey(new Date())
 
   const curatedSets = sets.filter((s) => s.type !== 'monthly')
   const monthlySet = sets.find(
@@ -74,6 +78,66 @@ export function Sets() {
           <Link to={`/sets/${monthlySet.id}`}>
             <SetCard set={monthlySet} />
           </Link>
+        </section>
+      )}
+
+      <section className="mb-6">
+        <h3 className="font-bold mb-3">תבניות עמוד</h3>
+        <p className="text-sm text-muted mb-3">
+          פתיחת כתיבה עם מבנה מוכן — אפשר לערוך, לשמור כטיוטה או לפרסם ליומן.
+        </p>
+        <div className="grid gap-3">
+          {PAGE_TEMPLATES.map((tpl) => (
+            <Link
+              key={tpl.id}
+              to={`/write?date=${todayKey}&templateId=${tpl.id}`}
+              className="block"
+            >
+              <Card className="hover:opacity-95 transition-opacity border border-primary/15">
+                <div className="flex gap-3 items-start">
+                  <span className="text-2xl shrink-0" aria-hidden>
+                    {tpl.emoji}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="font-bold">{tpl.title}</h4>
+                    <p className="text-sm text-muted line-clamp-2">{tpl.description}</p>
+                    <span className="inline-flex items-center gap-1 mt-2 text-primary text-sm">
+                      פתיחה בתבנית
+                      <ChevronLeft size={14} />
+                    </span>
+                  </div>
+                </div>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {drafts.length > 0 && (
+        <section className="mb-6">
+          <h3 className="font-bold mb-3 flex items-center gap-2">
+            <FileEdit size={18} className="text-primary" />
+            טיוטות
+          </h3>
+          <p className="text-sm text-muted mb-3">לא מוצגות ביומן עד פרסום.</p>
+          <div className="flex flex-col gap-2">
+            {drafts.slice(0, 8).map((dr) => (
+              <Link
+                key={dr.id}
+                to={`/write?date=${dr.dayKey}&draftId=${dr.id}`}
+                className="block"
+              >
+                <Card className="py-3 hover:opacity-95 transition-opacity">
+                  <p className="text-sm font-medium truncate">
+                    {dr.templateId
+                      ? PAGE_TEMPLATES.find((t) => t.id === dr.templateId)?.title ?? 'טיוטה'
+                      : 'טיוטה'}
+                  </p>
+                  <p className="text-xs text-muted">יום {dr.dayKey}</p>
+                </Card>
+              </Link>
+            ))}
+          </div>
         </section>
       )}
 
